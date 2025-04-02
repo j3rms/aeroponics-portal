@@ -9,10 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "framer-motion": "^12.4.10",
     "next": "15.2.0",
     "postcss": "^8.5.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "recharts": "^2.15.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

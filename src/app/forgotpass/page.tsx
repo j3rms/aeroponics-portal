@@ -1,48 +1,69 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { motion } from "framer-motion";
 
 export default function ForgotPassword() {
+  const [email, setEmail] = useState("");
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white shadow-xl rounded-lg p-8 w-full max-w-md">
-        <h2 className="text-3xl font-extrabold text-center text-red-800">Forgot Password</h2>
-        <p className="mt-4 text-center text-gray-600">
-          Enter your email address, and we'll send you a link to reset your password.
+    <div
+      className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-green-100 to-blue-100"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="shadow-xl rounded-2xl p-8 w-full max-w-md backdrop-blur-md bg-white/90 border border-gray-300"
+      >
+        <h2 className="text-3xl font-extrabold text-center tracking-wide text-green-800 drop-shadow-md animate-pulse">
+          Forgot Password?
+        </h2>
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Enter your email below, and we'll send you a reset link.
         </p>
 
-        <form className="mt-8 space-y-6" action="#" method="POST">
+        <form className="mt-6 space-y-6" action="#" method="POST">
           <div className="space-y-4">
-            {/* Email Input */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
               <input
                 type="email"
                 name="email"
                 id="email"
                 required
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-red-800 focus:border-red-800 sm:text-sm"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
                 placeholder="Enter your email"
               />
             </div>
           </div>
 
-          {/* Submit Button */}
-          <div>
-            <button
-              type="submit"
-              className="w-full py-2 px-4 bg-red-800 text-white font-bold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-800"
-            >
-              Send Reset Link
-            </button>
-          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            type="submit"
+            className="w-full py-3 px-4 text-lg font-bold rounded-lg transition-all bg-green-700 text-white shadow-md hover:bg-green-800"
+          >
+            Send Reset Link
+          </motion.button>
         </form>
 
-        {/* Return to Login Link */}
         <div className="mt-6 text-center">
           <Link href="/login">
-            <span className="text-sm text-red-800 hover:underline">Back to Login</span>
+            <motion.span 
+              whileHover={{ scale: 1.1 }}
+              className="text-sm cursor-pointer font-medium hover:underline text-green-700"
+            >
+              Back to Login
+            </motion.span>
           </Link>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

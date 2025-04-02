@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { motion } from "framer-motion";
+
 
 export default function Signup() {
   const router = useRouter();
@@ -50,64 +53,117 @@ export default function Signup() {
   };
 
   return (
-    <section className="bg-gray-50 py-16 mt-10">
-      <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-extrabold text-red-800 sm:text-4xl text-center">
+    <div
+      className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-green-100 to-blue-100"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="shadow-lg rounded-xl p-8 w-full max-w-md backdrop-blur-xl bg-opacity-90 border border-gray-200"
+        style={{
+          backgroundColor: "rgba(255, 255, 255, 0.7)",
+          boxShadow: "0px 10px 30px rgba(0, 0, 0, 0.1)",
+        }}
+      >
+        <h2 className="text-3xl font-extrabold text-center tracking-wide text-green-800 drop-shadow-md animate-pulse">
           Create an Account
         </h2>
-        {error && <p className="text-red-600 text-center mt-2">{error}</p>}
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Join us to get the best phone cases for your device.
+        </p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div className="rounded-md shadow-sm space-y-4">
-            <input
-              name="name"
-              type="text"
-              required
-              placeholder="Full Name"
-              value={formData.name}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-red-800"
-            />
+        <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Full Name
+              </label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
+                placeholder="Enter your full name"
+              />
+            </div>
 
-            <input
-              name="email"
-              type="email"
-              required
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-red-800"
-            />
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
+                placeholder="Enter your email"
+              />
+            </div>
 
-            <input
-              name="password"
-              type="password"
-              required
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-red-800"
-            />
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
+                placeholder="Enter your password"
+              />
+            </div>
 
-            <input
-              name="confirmPassword"
-              type="password"
-              required
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-red-800"
-            />
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
+                placeholder="Confirm your password"
+              />
+            </div>
           </div>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             type="submit"
-            className="w-full py-2 px-4 bg-red-800 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:ring-2 focus:ring-red-800"
+            className="w-full py-3 px-4 text-lg font-bold rounded-lg transition-all bg-green-700 text-white shadow-md hover:bg-green-800"
           >
             Sign Up
-          </button>
+          </motion.button>
         </form>
-      </div>
-    </section>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm" style={{ color: "#4A5568" }}>
+            Already have an account?{" "}
+            <Link href="/login">
+              <motion.span
+                whileHover={{ scale: 1.1 }}
+                className="text-sm cursor-pointer font-medium hover:underline text-green-700"
+              >
+                Login here
+              </motion.span>
+            </Link>
+          </p>
+        </div>
+      </motion.div>
+    </div>
   );
 }
