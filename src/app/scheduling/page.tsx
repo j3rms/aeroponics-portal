@@ -13,18 +13,20 @@ export default function Scheduling() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-green-100 to-blue-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-white text-gray-800">
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-hidden">
-        <h1 className="text-4xl font-semibold text-green-800 mb-8">Watering Schedule</h1>
+        <h1 className="text-3xl font-semibold mb-10 tracking-tight text-green-700">
+          Watering Schedule
+        </h1>
 
-        <div className="bg-white p-8 rounded-xl shadow-lg border border-green-200 max-w-xl space-y-6">
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8 max-w-lg space-y-6">
           {/* Frequency Input */}
           <div>
-            <label className="block text-lg font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-600 mb-1">
               Frequency (times per day)
             </label>
             <input
@@ -34,27 +36,27 @@ export default function Scheduling() {
               placeholder="e.g. 2"
               value={frequency}
               onChange={(e) => setFrequency(Number(e.target.value))}
-              className="w-full p-4 border-2 border-green-300 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-300 hide-arrows"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 transition-all"
             />
           </div>
-          
+
           {/* Time Input */}
           <div>
-            <label className="block text-lg font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-600 mb-1">
               Watering Time
             </label>
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full p-4 border-2 border-green-300 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-300"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 transition-all"
             />
           </div>
 
           {/* Submit Button */}
           <button
             onClick={handleSubmit}
-            className="w-full bg-green-600 text-white p-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300"
+            className="w-full py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-all"
           >
             Save Schedule
           </button>

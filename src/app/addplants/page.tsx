@@ -119,35 +119,39 @@ export default function AddPlant() {
         )}
 
         {/* Selected Plant Preview */}
-        <div className="mt-8">
-          {selectedPlant ? (
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-4">
-              <div className="flex items-center space-x-4 mb-4">
-                <img
-                  src={selectedPlant.previewImage}
-                  alt={selectedPlant.name}
-                  className="w-16 h-16 object-cover rounded-md"
-                />
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-700">{selectedPlant.name}</h3>
-                  <p className="text-sm text-gray-500"><strong>pH:</strong> {selectedPlant.ph}</p>
-                  <p className="text-sm text-gray-500"><strong>PPM:</strong> {selectedPlant.ppm} ppm</p>
-                </div>
-              </div>
-              <button
-                onClick={handleAddPlant}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                Add Plant
-              </button>
-            </div>
-          ) : (
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-green-200 text-center">
-              <h3 className="text-2xl font-semibold text-green-700 mb-4">Select a plant from the dropdown to view its details 🌱</h3>
-            </div>
-          )}
+<div className="mt-10">
+  {selectedPlant ? (
+    <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 transition-all duration-300">
+      <div className="relative flex items-center gap-6">
+        {/* Image Container */}
+        <div className="relative w-150 h-100">
+          <img
+            src={selectedPlant.previewImage}
+            alt={selectedPlant.name}
+            className="w-full h-full object-cover rounded-lg border border-gray-200"
+          />
+          {/* pH and PPM Overlay */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent text-white p-2 text-xs rounded-b-lg">
+            <p className="font-medium">pH: {selectedPlant.ph}</p>
+            <p className="font-medium">PPM: {selectedPlant.ppm} ppm</p>
+          </div>
         </div>
 
+        {/* Plant Details */}
+        <div className="flex-1">
+          <h3 className="text-lg font-medium text-gray-800 tracking-tight">{selectedPlant.name}</h3>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="bg-white p-6 rounded-2xl shadow-inner border border-dashed border-gray-200 text-center">
+      <h3 className="text-lg font-semibold text-gray-600 mb-2">🌱 No plant selected</h3>
+      <p className="text-sm text-gray-400">Choose a plant from the dropdown to see its details.</p>
+    </div>
+  )}
+</div>
+
+        
         {/* List of Added Plants */}
         {selectedPlants.length > 0 && (
           <div className="mt-10 space-y-4">
