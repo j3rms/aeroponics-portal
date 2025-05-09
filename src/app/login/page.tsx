@@ -12,8 +12,18 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/");
+  
+    // Dummy credentials
+    const dummyEmail = "user@example.com";
+    const dummyPassword = "password123";
+  
+    if (email === dummyEmail && password === dummyPassword) {
+      router.push("/dashboard");
+    } else {
+      alert("Invalid email or password");
+    }
   };
+  
 
   return (
     <div
