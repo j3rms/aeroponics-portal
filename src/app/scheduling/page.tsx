@@ -6,10 +6,12 @@ import Sidebar from '@/components/sidebar';
 export default function Scheduling() {
   const [frequency, setFrequency] = useState<number | ''>('');
   const [time, setTime] = useState<string>('');
+  
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleSubmit = () => {
     console.log({ frequency, time });
-    alert('Schedule saved!');
+    setShowSuccessModal(true); // Show the success modal after submission
   };
 
   return (
@@ -56,11 +58,31 @@ export default function Scheduling() {
           {/* Submit Button */}
           <button
             onClick={handleSubmit}
-            className="w-full py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-all"
+            disabled={frequency === '' || frequency === 0 || time === ''} // Disable if frequency is empty, 0, or time is empty
+            className={`w-full py-3 rounded-lg font-medium transition-all ${
+              frequency === '' || frequency === 0 || time === ''
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
           >
             Save Schedule
           </button>
         </div>
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl shadow-xl text-center max-w-sm mx-auto">
+              <p className="text-gray-600 mb-4">Schedule saved! 🌱</p>
+              <button
+                onClick={() => setShowSuccessModal(false)} // Close the modal when clicked
+                className="px-4 py-2 bg-green-600 text-white rounded-2xl hover:bg-green-700 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

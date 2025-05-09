@@ -62,6 +62,11 @@ export default function CreateTower() {
     setSelectedPlants(updated);
   };
 
+  // Check if all selected plants have both time and frequency selected
+  const isButtonDisabled = selectedPlants.some(
+    (item) => item.schedule.time === '' || item.schedule.frequency === ''
+  );
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-white">
       <Sidebar />
@@ -162,9 +167,9 @@ export default function CreateTower() {
                 setShowSuccessModal(true); // Show the success modal
               }
             }}
-            disabled={selectedPlants.length === 0}
+            disabled={isButtonDisabled} // Disable if any plant has no time or frequency selected
             className={`py-3 px-6 rounded-2xl shadow-md text-sm font-semibold transition 
-              ${selectedPlants.length === 0
+              ${isButtonDisabled
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-green-600 text-white hover:bg-green-700'}`}
           >
