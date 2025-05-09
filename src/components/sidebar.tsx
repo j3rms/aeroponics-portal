@@ -7,7 +7,8 @@ import {
   PlusCircle,
   Leaf,
   Activity,
-  LogOut
+  LogOut,
+  Clock
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -19,7 +20,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="flex flex-col w-64 bg-gradient-to-b from-green-600 to-green-400 text-white h-screen p-6 shadow-lg justify-between">
+    <div className="flex flex-col w-64 bg-gradient-to-b from-green-600 to-green-400 text-white flex-min-h-screen p-6 shadow-lg justify-between">
       <div>
         <h2 className="text-3xl font-bold mb-8 text-center text-green-100">Aeroponics</h2>
 
@@ -52,12 +53,12 @@ export default function Sidebar() {
             </Link>
           </li>
           <li>
-            <Link
-              href="/activeplants"
+          <Link
+              href="/scheduling"
               className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200"
             >
-              <Activity className="w-5 h-5" />
-              <span className="text-lg">Active Plants</span>
+              <Clock className="w-5 h-5" />
+              <span className="text-lg">Scheduling</span>
             </Link>
           </li>
         </ul>
