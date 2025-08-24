@@ -8,69 +8,66 @@ import {
   Leaf,
   Activity,
   LogOut,
-  Clock
+  Clock,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Sidebar() {
   const router = useRouter();
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = () => {
-    // Optional: Clear auth tokens or session data here
-    router.push('/landing'); // Redirect to Welcome page
+    router.push('/landing');
   };
 
-  return (
-    <div className="flex flex-col w-64 bg-gradient-to-b from-green-600 to-green-400 text-white flex-min-h-screen p-6 shadow-lg justify-between">
-      <div>
-        <h2 className="text-3xl font-bold mb-8 text-center text-green-100">Aeroponics</h2>
+  const toggleSidebar = () => {
+    setCollapsed(prev => !prev);
+  };
 
-        <ul className="flex flex-col space-y-6">
-          <li>
-            <Link
-              href="/dashboard"
-              className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200"
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              <span className="text-lg">Dashboard</span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/createtower"
-              className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200"
-            >
-              <PlusCircle className="w-5 h-5" />
-              <span className="text-lg">Create Tower</span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/addplants"
-              className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200"
-            >
-              <Leaf className="w-5 h-5" />
-              <span className="text-lg">Add Plants</span>
-            </Link>
-          </li>
-          <li>
-          <Link
-              href="/scheduling"
-              className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200"
-            >
-              <Clock className="w-5 h-5" />
-              <span className="text-lg">Scheduling</span>
-            </Link>
-          </li>
-        </ul>
+  const navItems = [
+    { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { href: '/createtower', icon: PlusCircle, label: 'Create Tower' },
+    { href: '/addplants', icon: Leaf, label: 'Add Plants' },
+    { href: '/scheduling', icon: Clock, label: 'Scheduling' }
+  ];
+
+  return (
+    <div className={`flex flex-col ${collapsed ? 'w-20' : 'w-64'} bg-gradient-to-b from-green-600 to-green-400 text-white min-h-screen p-4 shadow-lg transition-all duration-300`}>
+      
+      {/* Top Section with Logo and Toggle */}
+      <div className="flex items-center justify-between mb-6">
+        {!collapsed && (
+          <h2 className="text-2xl font-bold text-green-100">Aeroponics</h2>
+        )}
+        <button onClick={toggleSidebar} className="text-white">
+          {collapsed ? <ChevronsRight size={20} /> : <ChevronsLeft size={20} />}
+        </button>
       </div>
+
+      {/* Navigation Items */}
+      <ul className="flex flex-col space-y-4 flex-grow">
+        {navItems.map(({ href, icon: Icon, label }) => (
+          <li key={href}>
+            <Link
+              href={href}
+              className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200"
+            >
+              <Icon className="w-5 h-5" />
+              {!collapsed && <span className="text-lg">{label}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
 
       {/* Logout Button */}
       <button
         onClick={handleLogout}
-        className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200 mt-8"
+        className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200 mt-4"
       >
         <LogOut className="w-5 h-5" />
-        <span className="text-lg">Logout</span>
+        {!collapsed && <span className="text-lg">Logout</span>}
       </button>
     </div>
   );
