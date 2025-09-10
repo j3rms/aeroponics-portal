@@ -5,16 +5,17 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-
 export default function Signup() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    name: "",
+    first_name: "",
+    last_name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -23,9 +24,11 @@ export default function Signup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
+      setLoading(false);
       return;
     }
 
@@ -35,27 +38,26 @@ export default function Signup() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }),
+        body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to create account");
+        setError(data.message || "Failed to create account");
+        setLoading(false);
+        return;
       }
 
-      router.push("/login"); // Redirect on success
+      router.push("/login");
     } catch (err) {
       setError("Signup failed. Please try again.");
+      setLoading(false);
     }
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-green-100 to-blue-100"
-    >
+    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-green-100 to-blue-100">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -73,21 +75,43 @@ export default function Signup() {
           Join us to get the best phone cases for your device.
         </p>
 
+        {error && (
+          <div className="mt-4 p-2 rounded-md bg-red-100 text-red-700 text-sm text-center">
+            {error}
+          </div>
+        )}
+
         <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full Name
+              <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
+                First Name
               </label>
               <input
-                id="name"
-                name="name"
+                id="first_name"
+                name="first_name"
                 type="text"
                 required
-                value={formData.name}
+                value={formData.first_name}
                 onChange={handleChange}
                 className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
-                placeholder="Enter your full name"
+                placeholder="Enter your first name"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
+                Last Name
+              </label>
+              <input
+                id="last_name"
+                name="last_name"
+                type="text"
+                required
+                value={formData.last_name}
+                onChange={handleChange}
+                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
+                placeholder="Enter your last name"
               />
             </div>
 
@@ -144,9 +168,10 @@ export default function Signup() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             type="submit"
-            className="w-full py-3 px-4 text-lg font-bold rounded-lg transition-all bg-green-700 text-white shadow-md hover:bg-green-800"
+            disabled={loading}
+            className="w-full py-3 px-4 text-lg font-bold rounded-lg transition-all bg-green-700 text-white shadow-md hover:bg-green-800 disabled:opacity-50"
           >
-            Sign Up
+            {loading ? "Signing up..." : "Sign Up"}
           </motion.button>
         </form>
 
