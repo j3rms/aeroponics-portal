@@ -25,34 +25,55 @@ const LineChart = dynamic(
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
 export default function Dashboard() {
+    const [nutrientLevel, setNutrientLevel] = useState([
+    { time: "10 AM", level: 5.8 },
+    { time: "11 AM", level: 6.0 },
+    { time: "12 PM", level: 5.9 },
+    { time: "1 PM", level: 6.1 },
+  ]);
+
   // Chart data
-  const chartDataPH = {
+    const chartDataPH = {
     labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
     datasets: [
       {
         label: "pH Level",
         data: [5.5, 5.4, 6.2, 5.9, 6.0],
-        borderColor: "#4CAF50",
+        borderColor: "#D8C535", 
+        backgroundColor: "#C8E6C9",
         fill: false,
         tension: 0.4,
       },
     ],
   };
-
   const chartDataPPM = {
     labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
     datasets: [
       {
         label: "PPM Level",
         data: [10, 9, 25, 20, 22],
-        borderColor: "#2196F3",
+        borderColor: "#2196F3", 
+        backgroundColor: "#BBDEFB",
+        fill: false,
+        tension: 0.4,
+      },
+    ],
+  };
+  const chartDataWater = {
+    labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
+    datasets: [
+      {
+        label: "Water Level",
+        data: [80, 75, 72, 70, 68],
+        borderColor: "#D91C1C", 
+        backgroundColor: "#FFCDD2",
         fill: false,
         tension: 0.4,
       },
     ],
   };
 
-  // Chart.js options
+   // Chart.js options
   const chartOptions = {
     responsive: true,
     plugins: {
@@ -87,6 +108,7 @@ export default function Dashboard() {
           Dashboard
         </motion.h1>
 
+
        {/* Charts Label Section */}
       <section className="mb-10">
         <h3 className="text-lg font-semibold mb-3 text-green-800">
@@ -109,19 +131,30 @@ export default function Dashboard() {
       </section>
 
         {/* Charts Section */}
-        <section className="mb-10">
-          <h2 className="text-lg font-semibold mb-3 text-green-800">Nutrient Level Trends</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-4 rounded-lg shadow-md border">
-              <h3 className="font-bold text-green-900 mb-2">pH Level</h3>
+        <section className="mb-10">  
+          <div className="flex flex-wrap gap-6">
+            <div className="bg-white p-4 rounded-lg shadow-md border w-140">
+             <h3 className="font-bold text-green-900 mb-2">pH Level 
+             </h3>
+            <div className="relative h-70 w-full">
               <LineChart data={chartDataPH} options={chartOptions} />
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-md border">
-              <h3 className="font-bold text-green-900 mb-2">PPM Level</h3>
+          </div>
+            <div className="bg-white p-4 rounded-lg shadow-md border w-140">
+             <h3 className="font-bold text-green-900 mb-2">PPM Level</h3>
+            <div className="relative h-70 w-full">
               <LineChart data={chartDataPPM} options={chartOptions} />
             </div>
           </div>
+            <div className="bg-white p-4 rounded-lg shadow-md border w-140">
+             <h3 className="font-bold text-green-900 mb-2">Water Level</h3>
+            <div className="relative h-70 w-full">
+              <LineChart data={chartDataWater} options={chartOptions} />
+            </div>
+          </div>
+          </div>
         </section>
+
 
         {/* Active Tower Section */}
         <section>
@@ -131,13 +164,15 @@ export default function Dashboard() {
               <motion.div
                 key={plant}
                 whileHover={{ scale: 1.05 }}
-                className="bg-white p-4 rounded-lg shadow-md flex flex-col items-center border"
+                className="bg-white rounded-xl overflow-hidden shadow-lg border border-gray-200 flex flex-col items-center p-5 transition duration-300"
               >
-                <img
-                  src="/tower.png" // replace with your tower image
-                  alt={plant}
-                  className="h-28 mb-3"
-                />
+                <div className="w-full flex justify-center">
+                  <img
+                    src={`/images/${plant.toLowerCase()}.png`}
+                    alt={plant}
+                    className="h-28 object-contain"
+                  />
+                </div>
                 <p className="font-bold text-green-900">{plant}</p>
               </motion.div>
             ))}
