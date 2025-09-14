@@ -1,197 +1,220 @@
 'use client';
 
 import { useState } from 'react';
-import React from 'react';
-import Sidebar from '@/components/sidebar';
+import Header from '@/components/header';
+import { ChevronLeft, ChevronRight, Clock, RefreshCw } from 'lucide-react';
 
-type PlantInfo = {
+type Plant = {
   name: string;
   ph: string;
   ppm: string;
-  previewImage: string;
 };
 
-const plants: PlantInfo[] = [
-  { name: 'Lettuce', ph: '5.5 - 6.5', ppm: '560 - 840', previewImage: 'images/lettuce.jpg' },
-  { name: 'Kale', ph: '5.5 - 6.5', ppm: '1400 - 3500', previewImage: 'images/kale.jpg' },
-  { name: 'Spinach', ph: '6.0 - 7.0', ppm: '1260 - 1610', previewImage: 'images/spinach.jpg' },
-  { name: 'Cabbage', ph: '5.8 - 6.0', ppm: '1190 - 1750', previewImage: 'images/cabbage.jpg' },
-  { name: 'Basil', ph: '5.5 - 6.5', ppm: '700 - 1120', previewImage: 'images/basil.jpg' },
-  { name: 'Broccoli', ph: '6.0 - 6.5', ppm: '1960 - 2450', previewImage: 'images/broccoli.jpg' },
+const plants: Plant[] = [
+  { name: 'Lettuce', ph: '5.5 - 6.5', ppm: '560 - 840 ppm' },
+  { name: 'Kale', ph: '6.0 - 7.0', ppm: '1050 - 1400 ppm' },
+  { name: 'Spinach', ph: '6.0 - 7.0', ppm: '1050 - 1400 ppm' },
+  { name: 'Basil', ph: '5.5 - 6.5', ppm: '700 - 1120 ppm' },
 ];
 
-type WateringSchedule = {
-  time: string;
-  frequency: string;
-};
-
-type SelectedPlantWithSchedule = {
-  plant: PlantInfo;
-  schedule: WateringSchedule;
-};
-
 export default function CreateTower() {
-  const [selectedPlants, setSelectedPlants] = useState<SelectedPlantWithSchedule[]>([]);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedPlant, setSelectedPlant] = useState('');
+  const [wateringTime, setWateringTime] = useState('');
+  const [wateringFrequency, setWateringFrequency] = useState('');
+  const [wateringDays, setWateringDays] = useState<number[]>([]);
 
-  const handleSelectPlant = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const plantName = e.target.value;
-    if (!plantName) return;
+  // Calendar state
+  const today = new Date();
+  const [month, setMonth] = useState(today.getMonth());
+  const [year, setYear] = useState(today.getFullYear());
 
-    const plant = plants.find((p) => p.name === plantName);
-    if (!plant) return;
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    setSelectedPlants((prev) => [
-      ...prev,
-      { plant, schedule: { time: '', frequency: '' } },
-    ]);
+  const toggleDay = (day: number) => {
+    setWateringDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
   };
 
-  const handleWateringScheduleChange = (
-    index: number,
-    field: 'time' | 'frequency',
-    value: string
-  ) => {
-    const updated = [...selectedPlants];
-    updated[index].schedule[field] = value;
-    setSelectedPlants(updated);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    alert(
+      `Tower created!\nPlant: ${selectedPlant}\nTime: ${wateringTime}\nFrequency: ${wateringFrequency}\nDays: ${wateringDays.join(
+        ', '
+      )}`
+    );
   };
 
-  const handleRemovePlant = (index: number) => {
-    const updated = selectedPlants.filter((_, i) => i !== index);
-    setSelectedPlants(updated);
-  };
-
-  // Check if all selected plants have both time and frequency selected
-  const isButtonDisabled = selectedPlants.some(
-    (item) => item.schedule.time === '' || item.schedule.frequency === ''
-  );
+  const monthNames = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-white">
-      <Sidebar />
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-white to-green-50">
+      <Header />
 
-      <main className="flex-1 p-8 overflow-hidden">
-        <h1 className="text-3xl font-semibold text-green-700 mb-10">Create Tower</h1>
+      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">
+        <h1 className="text-3xl font-bold text-green-700 mb-2">Create Tower</h1>
+        <p className="text-gray-600 mb-10">
+          Set up your aeroponics system for optimal plant growth
+        </p>
 
-        {/* Plant Selector */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 max-w-xl mb-10">
-          <label htmlFor="plant-select" className="block text-sm font-medium text-gray-600 mb-2">
-            Select a plant to add:
-          </label>
-          <select
-            id="plant-select"
-            onChange={handleSelectPlant}
-            className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 transition"
-          >
-            <option value="">Choose a plant</option>
-            {plants.map((plant) => (
-              <option key={plant.name} value={plant.name}>
-                {plant.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Selected Plants */}
-        {selectedPlants.length > 0 && (
-          <div className="space-y-6 max-w-xl">
-            {selectedPlants.map((item, index) => (
-              <div
-                key={`${item.plant.name}-${index}`}
-                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"
-              >
-                <div className="flex items-center gap-5 space-x-4 mb-4">
-                  <img
-                    src={item.plant.previewImage}
-                    alt={item.plant.name}
-                    className="w-16 h-16 object-cover rounded-lg border border-gray-200"
-                  />
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-800">{item.plant.name}</h3>
-                    <p className="text-sm text-gray-500">
-                      <span className="font-medium text-gray-600">pH:</span> {item.plant.ph}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      <span className="font-medium text-gray-600">PPM:</span> {item.plant.ppm} ppm
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Watering Time</label>
-                    <input
-                      type="time"
-                      value={item.schedule.time}
-                      onChange={(e) =>
-                        handleWateringScheduleChange(index, 'time', e.target.value)
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Watering Frequency</label>
-                    <select
-                      value={item.schedule.frequency}
-                      onChange={(e) =>
-                        handleWateringScheduleChange(index, 'frequency', e.target.value)
-                      }
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400"
-                    >
-                      <option value="">Choose frequency</option>
-                      <option value="Daily">Daily</option>
-                      <option value="Weekly">Weekly</option>
-                      <option value="Bi-weekly">Bi-weekly</option>
-                    </select>
-                  </div>
-
-                  <button
-                    onClick={() => handleRemovePlant(index)}
-                    className="w-full py-3 text-green rounded-lg hover:bg-red-500 transition"
-                  >
-                    Remove Plant
-                  </button>
-                </div>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Step 1 - Select Plant */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md
+p-6">
+            
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-7 h-7 flex items-center justify-center rounded-full bg-green-600 text-white font-semibold text-sm">
+                1
               </div>
-            ))}
-          </div>
-        )}
+              <h2 className="font-semibold text-lg text-gray-800">Select Your Plant</h2>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              Choose the plant variety for your tower
+            </p>
+            <select
+              value={selectedPlant}
+              onChange={(e) => setSelectedPlant(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
+            >
+              <option value="">Choose your plant variety</option>
+              {plants.map((plant) => (
+                <option key={plant.name} value={plant.name}>
+                  {plant.name}
+                </option>
+              ))}
+            </select>
 
-        {/* Submit */}
-        <div className="text-center mt-12">
+            {selectedPlant && (
+              <div className="mt-4 text-sm text-gray-600">
+                <p><strong>pH:</strong> {plants.find(p => p.name === selectedPlant)?.ph}</p>
+                <p><strong>PPM:</strong> {plants.find(p => p.name === selectedPlant)?.ppm}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Step 2 - Watering Schedule */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md
+p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-7 h-7 flex items-center justify-center rounded-full bg-green-600 text-white font-semibold text-sm">
+                2
+              </div>
+              <h2 className="font-semibold text-lg text-gray-800">Watering Schedule</h2>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              Configure when and how often to water
+            </p>
+
+            <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Watering Time
+            </label>
+            <input
+              type="time"
+              value={wateringTime}
+              onChange={(e) => setWateringTime(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400 mb-4"
+            />
+
+            <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" /> Watering Frequency
+            </label>
+            <select
+              value={wateringFrequency}
+              onChange={(e) => setWateringFrequency(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
+            >
+              <option value="">Select frequency</option>
+              <option value="1">Once a day</option>
+              <option value="2">Twice a day</option>
+              <option value="3">3 times a day</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+
+          {/* Step 3 - Calendar */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6 lg:col-span-2">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-7 h-7 flex items-center justify-center rounded-full bg-green-600 text-white font-semibold text-sm">
+                3
+              </div>
+              <h2 className="font-semibold text-lg text-gray-800">Select Watering Days</h2>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">
+              Choose which days to activate the watering system
+            </p>
+
+            <div className="flex justify-between items-center mb-4">
+              <button
+                type="button"
+                onClick={() => setMonth((m) => (m === 0 ? 11 : m - 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-800">
+                {monthNames[month]} {year}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setMonth((m) => (m === 11 ? 0 : m + 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Weekdays */}
+            <div className="grid grid-cols-7 text-center font-medium text-gray-500 mb-2">
+              {weekDays.map((day) => (
+                <div key={day}>{day}</div>
+              ))}
+            </div>
+
+            {/* Days */}
+            <div className="grid grid-cols-7 gap-2 text-center">
+              {Array.from({ length: firstDayOfMonth }).map((_, idx) => (
+                <div key={idx}></div>
+              ))}
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
+                <button
+                  type="button"
+                  key={day}
+                  onClick={() => toggleDay(day)}
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm transition ${
+                    wateringDays.includes(day)
+                      ? 'bg-green-600 text-white font-semibold shadow-md'
+                      : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+
+            {/* Selected Days Summary */}
+            {wateringDays.length > 0 && (
+              <p className="mt-4 text-sm text-gray-700">
+                <strong>Selected days:</strong> {wateringDays.join(', ')}
+              </p>
+            )}
+          </div>
+        </form>
+
+        {/* Submit Button */}
+        <div className="mt-10 flex justify-center">
           <button
-            onClick={() => {
-              if (selectedPlants.length > 0) {
-                setShowSuccessModal(true); // Show the success modal
-              }
-            }}
-            disabled={isButtonDisabled} // Disable if any plant has no time or frequency selected
-            className={`py-3 px-6 rounded-2xl shadow-md text-sm font-semibold transition 
-              ${isButtonDisabled
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-green-600 text-white hover:bg-green-700'}`}
+            type="submit"
+            onClick={handleSubmit}
+            className="bg-green-600 text-white px-10 py-4 rounded-xl font-semibold shadow-lg hover:bg-green-700 transition"
           >
             CREATE TOWER
           </button>
         </div>
-
-        {/* Success Modal */}
-        {showSuccessModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl shadow-xl text-center max-w-sm mx-auto">
-              <h2 className="text-xl font-bold text-green-700 mb-2">Tower Created!</h2>
-              <p className="text-gray-600 mb-4">Your tower has been successfully configured. 🌱</p>
-              <button
-                onClick={() => setShowSuccessModal(false)}
-                className="px-4 py-2 bg-green-600 text-white rounded-2xl hover:bg-green-700 transition"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

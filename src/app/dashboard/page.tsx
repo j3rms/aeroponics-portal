@@ -1,5 +1,6 @@
 "use client";
-
+import Link from "next/link";
+import Header from "@/components/header";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
@@ -60,19 +61,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-green-50">
-      {/* Header */}
-      <header className="flex items-center justify-between bg-green-700 text-white px-6 py-3 shadow-md">
-        <div className="flex items-center space-x-3">
-          <img src="/urbanfarm.png" alt="UrbanFarm Logo" className="h-10" />
-          <h1 className="font-bold text-xl">URBANFARM</h1>
-        </div>
-        <nav className="flex items-center space-x-6">
-          <a href="#" className="hover:underline">Manage tower</a>
-          <a href="#" className="hover:underline">Manage plant</a>
-          <button className="hover:scale-110 transition">🔔</button>
-          <button className="hover:scale-110 transition">👤</button>
-        </nav>
-      </header>
+      <Header />
 
       {/* Dashboard Content */}
       <main className="p-6">
