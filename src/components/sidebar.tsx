@@ -1,74 +1,60 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  LayoutDashboard,
-  PlusCircle,
-  Leaf,
-  Activity,
-  LogOut,
-  Clock,
-  ChevronsLeft,
-  ChevronsRight
-} from 'lucide-react';
-import { useState } from 'react';
+import Link from "next/link";
+import { LayoutDashboard, Building2, FileText, User, Info } from "lucide-react";
 
 export default function Sidebar() {
-  const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
-
-  const handleLogout = () => {
-    router.push('/landing');
-  };
-
-  const toggleSidebar = () => {
-    setCollapsed(prev => !prev);
-  };
-
-  const navItems = [
-    { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { href: '/createtower', icon: PlusCircle, label: 'Create Tower' },
-    { href: '/addplants', icon: Leaf, label: 'Add Plants' },
-    { href: '/scheduling', icon: Clock, label: 'Scheduling' }
-  ];
-
   return (
-    <div className={`flex flex-col ${collapsed ? 'w-20' : 'w-64'} bg-gradient-to-b from-green-600 to-green-400 text-white min-h-screen p-4 shadow-lg transition-all duration-300`}>
-      
-      {/* Top Section with Logo and Toggle */}
-      <div className="flex items-center justify-between mb-6">
-        {!collapsed && (
-          <h2 className="text-2xl font-bold text-green-100">Aeroponics</h2>
-        )}
-        <button onClick={toggleSidebar} className="text-white">
-          {collapsed ? <ChevronsRight size={20} /> : <ChevronsLeft size={20} />}
-        </button>
+    <aside className="w-64 h-screen bg-green-700 text-white flex flex-col">
+      {/* Brand / Logo */}
+      <div className="flex items-center px-4 py-5 border-b border-green-600">
+        <Link href="/dashboard" className="font-bold text-2xl tracking-wide">
+          🌱 UrbanFarm
+        </Link>
       </div>
 
-      {/* Navigation Items */}
-      <ul className="flex flex-col space-y-4 flex-grow">
-        {navItems.map(({ href, icon: Icon, label }) => (
-          <li key={href}>
-            <Link
-              href={href}
-              className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200"
-            >
-              <Icon className="w-5 h-5" />
-              {!collapsed && <span className="text-lg">{label}</span>}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {/* Navigation */}
+      <nav className="flex-1 mt-4 space-y-1 text-lg font-medium">
+        <Link
+          href="/dashboard"
+          className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+        >
+          <LayoutDashboard className="h-6 w-6" />
+          <span className="ml-3">Dashboard</span>
+        </Link>
 
-      {/* Logout Button */}
-      <button
-        onClick={handleLogout}
-        className="flex items-center space-x-4 p-3 rounded-lg hover:bg-green-500 transition duration-200 mt-4"
-      >
-        <LogOut className="w-5 h-5" />
-        {!collapsed && <span className="text-lg">Logout</span>}
-      </button>
-    </div>
+        <Link
+          href="/managetower"
+          className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+        >
+          <Building2 className="h-6 w-6" />
+          <span className="ml-3">Towers</span>
+        </Link>
+
+        <Link
+          href="/logs"
+          className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+        >
+          <FileText className="h-6 w-6" />
+          <span className="ml-3">Logs</span>
+        </Link>
+
+        <Link
+          href="/account"
+          className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+        >
+          <User className="h-6 w-6" />
+          <span className="ml-3">My Account</span>
+        </Link>
+
+        <Link
+          href="/about"
+          className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+        >
+          <Info className="h-6 w-6" />
+          <span className="ml-3">About</span>
+        </Link>
+      </nav>
+    </aside>
   );
 }
