@@ -1,29 +1,34 @@
+"use client";
+
+import Link from "next/link";
+
 export default function Footer() {
-    return (
-      <footer className="bg-red-800 text-white py-6 px-4 w-full">
-        <div className="container mx-auto flex flex-wrap items-center justify-between">
-          {/* Copyright Section */}
-          <div className="w-full md:w-auto text-center md:text-left mb-4 md:mb-0">
-            <p className="text-xs md:text-sm">
-              Copyright 2025 &copy; All Rights Reserved.
-            </p>
-          </div>
-  
-          {/* Footer Links */}
-          <div className="w-full md:w-auto flex justify-center md:justify-end">
-            <ul className="flex gap-4 text-xs md:text-sm list-none">
-              <li>
-                <a href="#" className="hover:text-white transition duration-200">Contact</a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-white transition duration-200">Privacy Policy</a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-white transition duration-200">Terms of Use</a>
-              </li>
-            </ul>
-          </div>
+  return (
+    <footer className="bg-green-700 text-white shadow-inner mt-10">
+      <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+        {/* Brand */}
+        <div className="font-bold text-lg tracking-wide">
+          🌱 UrbanFarm
         </div>
-      </footer>
-    );
-  }
+
+        {/* Footer Links */}
+        <nav className="flex space-x-6 text-sm font-medium">
+          <Link href="/about" className="hover:text-green-200 transition">
+            About
+          </Link>
+          <Link href="/contact" className="hover:text-green-200 transition">
+            Contact
+          </Link>
+          <Link href="/privacy" className="hover:text-green-200 transition">
+            Privacy Policy
+          </Link>
+        </nav>
+
+        {/* Copyright */}
+        <div className="text-xs text-green-200">
+          © {new Date().getFullYear()} UrbanFarm. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  );
+}

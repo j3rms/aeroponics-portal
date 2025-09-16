@@ -1,6 +1,7 @@
-"use client";
-import Link from "next/link";
-import Header from "@/components/header";
+'use client';
+
+import Sidebar from "@/components/sidebar";
+import Footer from "@/components/footer";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import {
@@ -19,7 +20,14 @@ const LineChart = dynamic(
   { ssr: false }
 );
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend
+);
 
 export default function Dashboard() {
   // Chart data
@@ -60,56 +68,70 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-green-50">
-      <Header />
+    <div className="flex min-h-screen bg-green-50">
+      {/* Sidebar */}
+      <Sidebar />
 
-      {/* Dashboard Content */}
-      <main className="p-6">
-        <motion.h1
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-2xl font-bold mb-6 text-green-900"
-        >
-          Dashboard
-        </motion.h1>
+      {/* Main Content */}
+      <div className="flex flex-col flex-1">
+        <main className="flex-1 max-w-6xl mx-auto w-full px-10 py-12">
+          {/* Title */}
+          <motion.h1
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-3xl md:text-4xl font-bold text-green-700 mb-4"
+          >
+            Dashboard
+          </motion.h1>
+          <p className="text-gray-600 text-base md:text-lg mb-12">
+            Monitor your aeroponics system performance and plant tower activity
+          </p>
 
-        {/* Charts Section */}
-        <section className="mb-10">
-          <h2 className="text-lg font-semibold mb-3 text-green-800">Nutrient Level Trends</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-4 rounded-lg shadow-md border">
-              <h3 className="font-bold text-green-900 mb-2">pH Level</h3>
-              <LineChart data={chartDataPH} options={chartOptions} />
+          {/* Charts Section */}
+          <section className="mb-12">
+            <h2 className="text-lg md:text-xl font-semibold mb-6 text-gray-800">
+              Nutrient Level Trends
+            </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md p-8">
+                <h3 className="font-bold text-green-900 mb-6">pH Level</h3>
+                <LineChart data={chartDataPH} options={chartOptions} />
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md p-8">
+                <h3 className="font-bold text-green-900 mb-6">PPM Level</h3>
+                <LineChart data={chartDataPPM} options={chartOptions} />
+              </div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-md border">
-              <h3 className="font-bold text-green-900 mb-2">PPM Level</h3>
-              <LineChart data={chartDataPPM} options={chartOptions} />
-            </div>
-          </div>
-        </section>
+          </section>
 
-        {/* Active Tower Section */}
-        <section>
-          <h2 className="text-lg font-semibold mb-3 text-green-800">Active Tower</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {["SPINACH", "CABBAGE", "LETTUCE", "TOMATOES"].map((plant) => (
-              <motion.div
-                key={plant}
-                whileHover={{ scale: 1.05 }}
-                className="bg-white p-4 rounded-lg shadow-md flex flex-col items-center border"
-              >
-                <img
-                  src="/tower.png" // replace with your tower image
-                  alt={plant}
-                  className="h-28 mb-3"
-                />
-                <p className="font-bold text-green-900">{plant}</p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-      </main>
+          {/* Active Tower Section */}
+          <section>
+            <h2 className="text-lg md:text-xl font-semibold mb-6 text-gray-800">
+              Active Towers
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+              {["SPINACH", "CABBAGE", "LETTUCE", "TOMATOES"].map((plant) => (
+                <motion.div
+                  key={plant}
+                  whileHover={{ scale: 1.05 }}
+                  className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md p-8 flex flex-col items-center transition"
+                >
+                  <img
+                    src="/tower.png" // replace with your tower image
+                    alt={plant}
+                    className="h-32 mb-5"
+                  />
+                  <p className="font-bold text-green-900 text-lg">{plant}</p>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        </main>
+
+        {/* Footer */}
+        <Footer />
+      </div>
     </div>
   );
 }

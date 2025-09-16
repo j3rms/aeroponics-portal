@@ -307,11 +307,9 @@ export default function CreateTower() {
               CREATE TOWER
             </button>
           </div>
-        </main>
-
-        {/* Footer at bottom */}
-        <Footer />
+        </main>        
       </div>
+      
     </div>
   );
 }
