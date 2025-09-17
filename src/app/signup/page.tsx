@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Signup() {
   const router = useRouter();
@@ -16,6 +17,27 @@ export default function Signup() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Eye toggle states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Focus states (to show/hide eye icon only when focused)
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [confirmFocused, setConfirmFocused] = useState(false);
+
+  // Password validation
+  const passwordValidation = {
+    length: formData.password.length >= 8,
+    lowercase: /[a-z]/.test(formData.password),
+    uppercase: /[A-Z]/.test(formData.password),
+    number: /\d/.test(formData.password),
+    specialChar: /[^a-zA-Z0-9\-\/]/.test(formData.password),
+  };
+
+  // Confirm password validation: true if passwords match and confirmPassword is not empty
+  const isConfirmPasswordValid =
+    formData.confirmPassword.length > 0 && formData.confirmPassword === formData.password;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -83,6 +105,7 @@ export default function Signup() {
 
         <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
+            {/* First Name */}
             <div>
               <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
                 First Name
@@ -99,6 +122,7 @@ export default function Signup() {
               />
             </div>
 
+            {/* Last Name */}
             <div>
               <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
                 Last Name
@@ -115,6 +139,7 @@ export default function Signup() {
               />
             </div>
 
+            {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email Address
@@ -131,36 +156,96 @@ export default function Signup() {
               />
             </div>
 
-            <div>
+            {/* Password */}
+            <div className="relative">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
               <input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={formData.password}
                 onChange={handleChange}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
                 className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
                 placeholder="Enter your password"
               />
+              {passwordFocused && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="absolute right-3 top-9 text-gray-500"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              )}
+
+              {/* Password rules */}
+              {formData.password.length > 0 && (
+                <ul className="mt-2 text-sm space-y-1">
+                  <li className={passwordValidation.lowercase ? "text-green-600" : "text-red-600"}>
+                    {passwordValidation.lowercase ? "✔" : "✖"} At least one lowercase letter
+                  </li>
+                  <li className={passwordValidation.uppercase ? "text-green-600" : "text-red-600"}>
+                    {passwordValidation.uppercase ? "✔" : "✖"} At least one uppercase letter
+                  </li>
+                  <li className={passwordValidation.number ? "text-green-600" : "text-red-600"}>
+                    {passwordValidation.number ? "✔" : "✖"} At least one number
+                  </li>
+                  <li className={passwordValidation.specialChar ? "text-green-600" : "text-red-600"}>
+                    {passwordValidation.specialChar ? "✔" : "✖"} At least one special character
+                  </li>
+                  <li className={passwordValidation.length ? "text-green-600" : "text-red-600"}>
+                    {passwordValidation.length ? "✔" : "✖"} Minimum 8 characters
+                  </li>
+                </ul>
+              )}
             </div>
 
-            <div>
+
+            {/* Confirm Password */}
+            <div className="relative">
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
                 Confirm Password
               </label>
               <input
                 id="confirmPassword"
                 name="confirmPassword"
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 required
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                onFocus={() => setConfirmFocused(true)}
+                onBlur={() => setConfirmFocused(false)}
                 className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none transition-all"
                 placeholder="Confirm your password"
               />
+              {confirmFocused && (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="absolute right-3 top-9 text-gray-500"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              )}
+
+              {/* Confirm password validation message */}
+              {formData.confirmPassword.length > 0 && (
+                <p
+                  className={isConfirmPasswordValid ? "text-green-600" : "text-red-600"}
+                  style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}
+                >
+                  {isConfirmPasswordValid ? "✔ Passwords match" : "✖ Passwords do not match"}
+                </p>
+              )}
             </div>
           </div>
 

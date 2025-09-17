@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
+import { Eye, EyeOff } from "lucide-react"; // added for password show/hide
 
 export default function Login() {
   const router = useRouter();
   // const [email, setEmail] = useState("");
   // const [password, setPassword] = useState("");
   const [isDisabled, setIsDisabled] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // state to toggle password
 
   const handleSubmit = async (e) => {
       e.preventDefault();
@@ -42,7 +44,6 @@ export default function Login() {
         toast.remove();
         if (result.success) {
           toast.success("Signed in successfully!");
-  
           router.push("/dashboard");
         } else {
           // toast.success(
@@ -51,7 +52,6 @@ export default function Login() {
           //     : result.message
           // );
           setIsDisabled(false);
-  
           toast.error(
             result.message === "Unauthorized"
               ? "Incorrect email address or password. Please try again."
@@ -110,7 +110,7 @@ export default function Login() {
               />
             </div>
 
-            <div>
+            <div className="relative">
               <label
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700"
@@ -118,15 +118,23 @@ export default function Login() {
                 Password
               </label>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 name="password"
                 id="password"
                 required
                 // value={password}
                 // onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-green-600 focus:outline-none"
+                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-green-600 focus:outline-none pr-10"
                 placeholder="Enter your password"
               />
+              {/* Show/Hide Icon */}
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-9 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
 
             <motion.button

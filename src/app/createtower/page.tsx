@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
 import { Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 type Plant = {
   id: number;
@@ -31,6 +32,7 @@ const plants: Plant[] = [
 ];
 
 export default function CreateTower() {
+  const router = useRouter();
   const [selectedPlant, setSelectedPlant] = useState('');
   const [wateringTime, setWateringTime] = useState('');
   const [wateringFrequency, setWateringFrequency] = useState('');
@@ -51,6 +53,14 @@ export default function CreateTower() {
   const firstDayOfMonth = new Date(year, month, 1).getDay();
 
   const makeDate = (day: number) => new Date(year, month, day);
+
+  // add helper (place near top of file)
+  const formatDateLocal = (d: Date) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+  };
 
   const handleDateClick = (day: number) => {
     const clickedDate = makeDate(day);
@@ -88,13 +98,13 @@ export default function CreateTower() {
 
     // Build JSON payload
     const payload = {
-      user: { id: 1 }, // static user for now
-      plant: { id: plant.id },
-      time: wateringTime + ':00', // backend expects HH:mm:ss
-      water_level: 123, // placeholder, change if you add an input
-      frequency: parseInt(wateringFrequency),
-      start_date: startDate.getDate(), // sending as day number (1, 2, …)
-      end_date: endDate.getDate()
+    user: { id: 1 },
+    plant: { id: plant.id },
+    time: wateringTime + ':00',
+    water_level: 123,
+    frequency: parseInt(wateringFrequency),
+    start_date: formatDateLocal(startDate!), // "2025-09-18"
+    end_date: formatDateLocal(endDate!)      // "2025-10-01"
     };
 
     try {
@@ -111,6 +121,9 @@ export default function CreateTower() {
       const data = await res.json();
       console.log('Tower created:', data);
       alert('Tower successfully created!');
+
+      router.push('/managetower');
+      
     } catch (err) {
       console.error('Failed to create tower:', err);
       alert('Error creating tower');
