@@ -32,7 +32,7 @@ export default function Dashboard() {
   // Mock values
   const ppmValue = 950;
   const phValue = 5.8;
-  const targetWaterLevel = 70; // % full
+  const targetWaterLevel = 100; // % full
   const [waterLevel, setWaterLevel] = useState(0);
 
   // Animate tank fill-up
@@ -42,39 +42,6 @@ export default function Dashboard() {
     }, 500);
     return () => clearTimeout(timeout);
   }, []);
-
-  // Chart data (split for PPM & pH)
-  const chartDataPPM = {
-    labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
-    datasets: [
-      {
-        label: "PPM Level",
-        data: [950, 920, 980, 960, 940],
-        borderColor: "#2196F3",
-        fill: false,
-        tension: 0.4,
-      },
-    ],
-  };
-
-  const chartDataPH = {
-    labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
-    datasets: [
-      {
-        label: "pH Level",
-        data: [5.9, 5.7, 6.0, 5.8, 5.9],
-        borderColor: "#4CAF50",
-        fill: false,
-        tension: 0.4,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: { legend: { display: true } },
-    scales: { y: { beginAtZero: false } },
-  };
 
   return (
     <div className="flex min-h-screen bg-green-50 pl-64">
@@ -89,7 +56,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-3xl md:text-4xl font-bold text-green-700 mb-4"
+            className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
           >
             Dashboard
           </motion.h1>
@@ -100,13 +67,14 @@ export default function Dashboard() {
           {/* Top Stats */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <div className="bg-white rounded-2xl border shadow-sm p-6 text-center">
-              <p className="text-gray-600">PPM</p>
-              <h2 className="text-2xl font-bold text-blue-600">{ppmValue} ppm</h2>
-            </div>
-            <div className="bg-white rounded-2xl border shadow-sm p-6 text-center">
               <p className="text-gray-600">pH</p>
               <h2 className="text-2xl font-bold text-green-600">{phValue}</h2>
             </div>
+            <div className="bg-white rounded-2xl border shadow-sm p-6 text-center">
+              <p className="text-gray-600">PPM</p>
+              <h2 className="text-2xl font-bold text-blue-600">{ppmValue} ppm</h2>
+            </div>
+
             <div className="bg-white rounded-2xl border shadow-sm p-6 text-center">
               <p className="text-gray-600">Water Level</p>
               <h2 className="text-2xl font-bold text-cyan-600">
@@ -116,83 +84,110 @@ export default function Dashboard() {
           </section>
 
           {/* Charts Section */}
-<section className="mb-12">
-  <h2 className="text-lg md:text-xl font-semibold mb-6 text-gray-800">
-    Nutrient & Water Monitoring
-  </h2>
-  <div className="grid grid-cols-12 gap-6">
-    {/* pH Level */}
-    <div className="col-span-5 bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-      <h3 className="font-bold text-green-900 mb-6">pH Level</h3>
-      <LineChart
-        data={{
-          labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
-          datasets: [
-            {
-              label: "pH Level",
-              data: [5.9, 5.7, 6.0, 5.8, 5.9],
-              borderColor: "#4CAF50",
-              fill: false,
-              tension: 0.4,
-            },
-          ],
-        }}
-        options={{
-          responsive: true,
-          plugins: { legend: { display: true } },
-          scales: { y: { beginAtZero: false } },
-        }}
-      />
-    </div>
+          <section className="mb-12">
+            <h2 className="text-lg md:text-xl font-semibold mb-6 text-gray-800">
+              Nutrient & Water Monitoring
+            </h2>
+            <div className="grid grid-cols-12 gap-6">
+              {/* pH Level */}
+              <div className="col-span-5 bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+                <h3 className="font-bold text-green-900 mb-6">pH Level</h3>
+                <LineChart
+                  data={{
+                    labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
+                    datasets: [
+                      {
+                        label: "pH Level",
+                        data: [5.9, 5.7, 6.0, 5.8, 5.9],
+                        borderColor: "#4CAF50",
+                        fill: false,
+                        tension: 0.4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    plugins: { legend: { display: true } },
+                    scales: { y: { beginAtZero: false } },
+                  }}
+                />
+              </div>
 
-    {/* PPM Level */}
-    <div className="col-span-5 bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-      <h3 className="font-bold text-green-900 mb-6">PPM Level</h3>
-      <LineChart
-        data={{
-          labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
-          datasets: [
-            {
-              label: "PPM Level",
-              data: [950, 920, 980, 960, 940],
-              borderColor: "#2196F3",
-              fill: false,
-              tension: 0.4,
-            },
-          ],
-        }}
-        options={{
-          responsive: true,
-          plugins: { legend: { display: true } },
-          scales: { y: { beginAtZero: false } },
-        }}
-      />
-    </div>
+              {/* PPM Level */}
+              <div className="col-span-5 bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+                <h3 className="font-bold text-green-900 mb-6">PPM Level</h3>
+                <LineChart
+                  data={{
+                    labels: ["1 PM", "2 PM", "3 PM", "4 PM", "5 PM"],
+                    datasets: [
+                      {
+                        label: "PPM Level",
+                        data: [950, 920, 980, 960, 940],
+                        borderColor: "#2196F3",
+                        fill: false,
+                        tension: 0.4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    plugins: { legend: { display: true } },
+                    scales: { y: { beginAtZero: false } },
+                  }}
+                />
+              </div>
 
-    {/* Water Tank */}
+              {/* Water Tank */}
 <div className="col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-8 flex flex-col items-center">
   <h3 className="font-bold text-green-900 mb-6">Water Level</h3>
   <div className="relative w-20 h-64 bg-gray-200 rounded-lg border-2 border-gray-400 overflow-hidden">
-    {/* Animated Fill */}
+    {/* Water Fill */}
     <div
-      className="absolute bottom-0 left-0 w-full bg-cyan-500 transition-all duration-1000 ease-in-out"
+      className="absolute bottom-0 left-0 w-full bg-cyan-500 transition-all duration-1000 ease-in-out overflow-hidden"
       style={{ height: `${waterLevel}%` }}
     >
-      {/* Waves */}
-      <div className="wave wave1"></div>
-      <div className="wave wave2"></div>
+      {/* Waves (SVGs) */}
+      <svg
+        className="absolute bottom-0 left-0 w-[200%] h-8 wave wave1"
+        viewBox="0 0 1440 320"
+        preserveAspectRatio="none"
+      >
+        <path
+          fill="rgba(255,255,255,0.4)"
+          d="M0,160L48,170.7C96,181,192,203,288,197.3C384,192,480,160,576,160C672,160,768,192,864,186.7C960,181,1056,139,1152,122.7C1248,107,1344,117,1392,122.7L1440,128V320H0Z"
+        />
+      </svg>
+      <svg
+        className="absolute bottom-0 left-0 w-[200%] h-8 wave wave2"
+        viewBox="0 0 1440 320"
+        preserveAspectRatio="none"
+      >
+        <path
+          fill="rgba(255,255,255,0.3)"
+          d="M0,192L60,176C120,160,240,128,360,122.7C480,117,600,139,720,154.7C840,171,960,181,1080,176C1200,171,1320,149,1380,138.7L1440,128V320H0Z"
+        />
+      </svg>
+      <svg
+        className="absolute bottom-0 left-0 w-[200%] h-8 wave wave3"
+        viewBox="0 0 1440 320"
+        preserveAspectRatio="none"
+      >
+        <path
+          fill="rgba(255,255,255,0.2)"
+          d="M0,224L48,229.3C96,235,192,245,288,229.3C384,213,480,171,576,165.3C672,160,768,192,864,202.7C960,213,1056,203,1152,197.3C1248,192,1344,192,1392,192L1440,192V320H0Z"
+        />
+      </svg>
     </div>
 
-    {/* Percentage Label (stays on top, no wave effect) */}
+    {/* Percentage Label */}
     <div className="absolute inset-0 flex items-center justify-center font-bold text-gray-700 z-10">
       {waterLevel}%
     </div>
   </div>
 </div>
 
-  </div>
-</section>
-
+            </div>
+          </section>
 
           {/* Active Tower Section */}
           <section>
@@ -217,33 +212,33 @@ export default function Dashboard() {
 
       {/* Wave animations */}
       <style jsx>{`
-  .wave {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 200%;
-    height: 200%;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 35%;
-    animation: wave-animation 4s infinite linear;
-  }
-  .wave1 {
-    animation-delay: 0s;
-  }
-  .wave2 {
-    animation-delay: -2s;
-    opacity: 0.5;
-  }
-  @keyframes wave-animation {
-    0% {
-      transform: translateX(0);
-    }
-    100% {
-      transform: translateX(-50%);
-    }
-  }
-`}</style>
-
+        .wave {
+          position: absolute;
+          top: -10px;
+          left: 0;
+          width: 200%;
+          height: 30px;
+          background: rgba(255, 255, 255, 0.4);
+          border-radius: 100%;
+          opacity: 0.6;
+          animation: waveAnim 4s linear infinite;
+        }
+        .wave1 {
+          animation: waveAnim 4s linear infinite;
+        }
+        .wave2 {
+          animation: waveAnim 6s linear infinite reverse;
+          opacity: 0.3;
+        }
+        @keyframes waveAnim {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+      `}</style>
     </div>
   );
 }

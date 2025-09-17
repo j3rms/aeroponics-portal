@@ -34,7 +34,7 @@ export default function ManageTower() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-green-50 pl-64">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-green-50 pl-50">
       {/* Sidebar */}
       <Sidebar />
 
@@ -43,7 +43,7 @@ export default function ManageTower() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 mb-16">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-green-700 mb-3">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-3">
               Manage Towers
             </h1>
             <p className="text-gray-600 text-base md:text-lg">
