@@ -125,9 +125,9 @@ export default function CreateTower() {
   };
 
   return (
-    <div className="flex min-h-screen bg-green-50">
-      {/* Sidebar */}
-      <Sidebar />
+     <div className="flex min-h-screen bg-green-50 pl-64">
+          {/* Sidebar */}
+          <Sidebar />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">

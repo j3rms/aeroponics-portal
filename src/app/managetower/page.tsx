@@ -34,7 +34,7 @@ export default function ManageTower() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-green-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-green-50 pl-64">
       {/* Sidebar */}
       <Sidebar />
 
