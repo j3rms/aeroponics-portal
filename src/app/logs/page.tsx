@@ -79,7 +79,7 @@ export default function Logs() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-4xl font-bold text-green-700 mb-4"
+            className="text-4xl font-bold text-gray-800 mb-4"
           >
             Tower Data Logs
           </motion.h1>
