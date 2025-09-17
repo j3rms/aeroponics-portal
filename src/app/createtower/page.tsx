@@ -13,10 +13,21 @@ type Plant = {
 };
 
 const plants: Plant[] = [
-  { id: 2, name: 'Lettuce', ph: '5.5 - 6.5', ppm: '560 - 840 ppm' },
-  { id: 3, name: 'Kale', ph: '6.0 - 7.0', ppm: '1050 - 1400 ppm' },
-  { id: 4, name: 'Spinach', ph: '6.0 - 7.0', ppm: '1050 - 1400 ppm' },
-  { id: 5, name: 'Basil', ph: '5.5 - 6.5', ppm: '700 - 1120 ppm' },
+  { id: 1, name: "Arugula", ph: "5.5 - 6.8", ppm: "560 - 980 ppm" },
+  { id: 2, name: "Basil", ph: "5.5 - 6.5", ppm: "700 - 1120 ppm" },
+  { id: 3, name: "Bean", ph: "6.0 - 6.5", ppm: "1400 - 1680 ppm" },
+  { id: 4, name: "Bok Choy", ph: "6.5 - 7.0", ppm: "1050 - 1400 ppm" },
+  { id: 5, name: "Broccoli", ph: "6.0 - 6.5", ppm: "1960 - 2450 ppm" },
+  { id: 6, name: "Brussel Sprouts", ph: "6.5 - 7.5", ppm: "1750 - 2100 ppm" },
+  { id: 7, name: "Bunching Onion", ph: "5.5 - 6.8", ppm: "1260 - 1680 ppm" },
+  { id: 8, name: "Cabbage", ph: "6.5 - 7.0", ppm: "1750 - 2100 ppm" },
+  { id: 9, name: "Cauliflower", ph: "6.0 - 7.0", ppm: "1050 - 1400 ppm" },
+  { id: 10, name: "Celery", ph: "6.3 - 6.7", ppm: "1260 - 1680 ppm" },
+  { id: 11, name: "Chamomile", ph: "5.5 - 6.5", ppm: "560 - 980 ppm" },
+  { id: 12, name: "Chives", ph: "6.0 - 6.5", ppm: "1260 - 1680 ppm" },
+  { id: 13, name: "Cilantro", ph: "6.5 - 6.7", ppm: "910 - 1260 ppm" },
+  { id: 14, name: "Collard Greens", ph: "5.5 - 6.8", ppm: "1120 - 1750 ppm" },
+  { id: 15, name: "Cucumber", ph: "5.8 - 6.0", ppm: "1190 - 1750 ppm" },
 ];
 
 export default function CreateTower() {
