@@ -1,19 +1,13 @@
 "use client";
 import React from "react";
 import { cn } from "@/lib/utils";
-type HeroButtonProps = {
-  children: React.ReactNode;
-  variant?: "primary" | "secondary" | "outline";
-  size?: "sm" | "md" | "lg";
-  className?: string;
-};
 
 export const HeroButton = ({
   children,
   variant = "primary",
   size = "md",
   className,
-}: HeroButtonProps) => {
+}) => {
   return (
     <button
       className={cn(

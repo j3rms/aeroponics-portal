@@ -7,12 +7,12 @@ import Sidebar from '@/components/sidebar';
 
 export default function MyAccount() {
   const [user, setUser] = useState({
-    fullName: 'Jeremy Ryan Quiroz',
-    email: 'jeremy@example.com',
-    username: 'jeremy123',
+    fullName: 'OG Diaz',
+    email: 'ogdiaz@official.com',
+    username: 'OG. Diaz',
     status: 'Active',
     memberSince: 'March 2024',
-    avatarUrl: null as string | null,
+    avatarUrl: null,
   });
 
   const [editMode, setEditMode] = useState(false);
@@ -35,42 +35,35 @@ export default function MyAccount() {
     }
   }, [passwords.new, passwords.confirm]);
 
-  const handleProfileUpdate = (e: React.FormEvent) => {
+  const handleProfileUpdate = (e) => {
     e.preventDefault();
-    // TODO: validate & send to backend
     alert('Profile updated!');
     setEditMode(false);
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = (e) => {
     e.preventDefault();
-    if (passwords.new !== passwords.confirm) {
-      // Already handled by error message
-      return;
-    }
-    // TODO: API call
+    if (passwords.new !== passwords.confirm) return;
     alert('Password changed!');
-    // Clear passwords
     setPasswords({ current: '', new: '', confirm: '' });
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = (e) => {
     const file = e.target.files && e.target.files[0];
     if (file) {
-      // simple preview
       const reader = new FileReader();
       reader.onload = () => {
-        setUser({ ...user, avatarUrl: reader.result as string });
+        setUser({ ...user, avatarUrl: reader.result });
       };
       reader.readAsDataURL(file);
     }
   };
 
   return (
-     <div className="flex min-h-screen bg-green-50 pl-64">
-          {/* Sidebar */}
-          <Sidebar />
-    
+    <div className="flex min-h-screen bg-green-50 pl-64">
+      {/* Sidebar */}
+      <Sidebar />
+
       <div className="flex flex-col flex-1 px-10 py-8 overflow-y-auto">
         {/* Header */}
         <motion.div
@@ -79,9 +72,7 @@ export default function MyAccount() {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
-            My Account
-          </h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">My Account</h1>
           <p className="text-gray-600 text-lg mt-2">
             Manage your account settings and preferences
           </p>
@@ -110,9 +101,7 @@ export default function MyAccount() {
               </div>
 
               {/* Name & Email */}
-              <h2 className="mt-4 text-xl font-semibold text-gray-800">
-                {user.fullName}
-              </h2>
+              <h2 className="mt-4 text-xl font-semibold text-gray-800">{user.fullName}</h2>
               <p className="text-gray-500 mt-1">{user.email}</p>
 
               {/* Status & Info */}
@@ -148,9 +137,7 @@ export default function MyAccount() {
           <div className="col-span-12 md:col-span-8 space-y-8">
             {/* PROFILE INFORMATION FORM */}
             <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-              <h2 className="text-2xl font-semibold text-gray-800">
-                Profile Information
-              </h2>
+              <h2 className="text-2xl font-semibold text-gray-800">Profile Information</h2>
               <p className="text-gray-500 mt-2 mb-6">
                 Update your personal info. Some fields may be disabled.
               </p>
@@ -162,9 +149,7 @@ export default function MyAccount() {
                     <input
                       type="text"
                       value={user.fullName}
-                      onChange={(e) =>
-                        setUser({ ...user, fullName: e.target.value })
-                      }
+                      onChange={(e) => setUser({ ...user, fullName: e.target.value })}
                       disabled={!editMode}
                       className={`w-full rounded-lg border ${
                         editMode
@@ -184,7 +169,7 @@ export default function MyAccount() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                <div className="grid grid-cols-1 gap-6">
                   <div>
                     <label className="block text-gray-700 mb-2">Email Address</label>
                     <input
@@ -225,9 +210,7 @@ export default function MyAccount() {
                   <input
                     type="password"
                     value={passwords.current}
-                    onChange={(e) =>
-                      setPasswords({ ...passwords, current: e.target.value })
-                    }
+                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                     className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 p-3"
                     required
                   />
@@ -239,9 +222,7 @@ export default function MyAccount() {
                     <input
                       type="password"
                       value={passwords.new}
-                      onChange={(e) =>
-                        setPasswords({ ...passwords, new: e.target.value })
-                      }
+                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
                       className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 p-3"
                       required
                     />
@@ -251,9 +232,7 @@ export default function MyAccount() {
                     <input
                       type="password"
                       value={passwords.confirm}
-                      onChange={(e) =>
-                        setPasswords({ ...passwords, confirm: e.target.value })
-                      }
+                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
                       className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 p-3"
                       required
                     />

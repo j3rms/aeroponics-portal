@@ -1,19 +1,9 @@
 import { motion } from "framer-motion";
 import React from "react";
 
-type FeatureCardProps = {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  delay?: number;
-};
+// Removed TypeScript type annotations
 
-const FeatureCard: React.FC<FeatureCardProps> = ({
-  title,
-  description,
-  icon,
-  delay = 0,
-}) => {
+const FeatureCard = ({ title, description, icon, delay = 0 }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}

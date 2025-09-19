@@ -9,8 +9,8 @@ import { Eye, EyeOff } from "lucide-react"; // added for password show/hide
 
 export default function Login() {
   const router = useRouter();
-  // const [email, setEmail] = useState("");
-  // const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isDisabled, setIsDisabled] = useState(false);
   const [showPassword, setShowPassword] = useState(false); // state to toggle password
 
@@ -37,7 +37,7 @@ export default function Login() {
         const result = await response.json();
   
         if (response.ok) {
-          // document.cookie = `user=${JSON.stringify(result.user)}; path=/; max-age=3600`
+          document.cookie = `user=${JSON.stringify(result.user)}; path=/; max-age=3600`
           toast.success("Signed in successfully!");
         }
   
@@ -46,11 +46,11 @@ export default function Login() {
           toast.success("Signed in successfully!");
           router.push("/dashboard");
         } else {
-          // toast.success(
-          //   result.message === "Unauthorized"
-          //     ? "Incorrect email address or password. Please try again."
-          //     : result.message
-          // );
+          toast.success(
+           result.message === "Unauthorized"
+              ? "Incorrect email address or password. Please try again."
+              : result.message
+          );
           setIsDisabled(false);
           toast.error(
             result.message === "Unauthorized"
@@ -103,8 +103,8 @@ export default function Login() {
                 name="email"
                 id="email"
                 required
-                // value={email}
-                // onChange={(e) => setEmail(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-green-600 focus:outline-none"
                 placeholder="Enter your email"
               />
@@ -122,8 +122,13 @@ export default function Login() {
                 name="password"
                 id="password"
                 required
+<<<<<<< Updated upstream
                 // value={password}
                 // onChange={(e) => setPassword(e.target.value)}
+=======
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+>>>>>>> Stashed changes
                 className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-green-600 focus:outline-none pr-10"
                 placeholder="Enter your password"
               />
