@@ -122,13 +122,8 @@ export default function Login() {
                 name="password"
                 id="password"
                 required
-<<<<<<< Updated upstream
-                // value={password}
-                // onChange={(e) => setPassword(e.target.value)}
-=======
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
->>>>>>> Stashed changes
                 className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-green-600 focus:outline-none pr-10"
                 placeholder="Enter your password"
               />

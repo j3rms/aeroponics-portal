@@ -6,11 +6,23 @@ import Footer from '@/components/footer';
 import { Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+// Plant list
 const plants = [
-  { name: 'Lettuce', ph: '5.5 - 6.5', ppm: '560 - 840 ppm' },
-  { name: 'Kale', ph: '6.0 - 7.0', ppm: '1050 - 1400 ppm' },
-  { name: 'Spinach', ph: '6.0 - 7.0', ppm: '1050 - 1400 ppm' },
-  { name: 'Basil', ph: '5.5 - 6.5', ppm: '700 - 1120 ppm' },
+  { id: 1, name: "Arugula", ph: "5.5 - 6.8", ppm: "560 - 980 ppm" },
+  { id: 2, name: "Basil", ph: "5.5 - 6.5", ppm: "700 - 1120 ppm" },
+  { id: 3, name: "Bean", ph: "6.0 - 6.5", ppm: "1400 - 1680 ppm" },
+  { id: 4, name: "Bok Choy", ph: "6.5 - 7.0", ppm: "1050 - 1400 ppm" },
+  { id: 5, name: "Broccoli", ph: "6.0 - 6.5", ppm: "1960 - 2450 ppm" },
+  { id: 6, name: "Brussel Sprouts", ph: "6.5 - 7.5", ppm: "1750 - 2100 ppm" },
+  { id: 7, name: "Bunching Onion", ph: "5.5 - 6.8", ppm: "1260 - 1680 ppm" },
+  { id: 8, name: "Cabbage", ph: "6.5 - 7.0", ppm: "1750 - 2100 ppm" },
+  { id: 9, name: "Cauliflower", ph: "6.0 - 7.0", ppm: "1050 - 1400 ppm" },
+  { id: 10, name: "Celery", ph: "6.3 - 6.7", ppm: "1260 - 1680 ppm" },
+  { id: 11, name: "Chamomile", ph: "5.5 - 6.5", ppm: "560 - 980 ppm" },
+  { id: 12, name: "Chives", ph: "6.0 - 6.5", ppm: "1260 - 1680 ppm" },
+  { id: 13, name: "Cilantro", ph: "6.5 - 6.7", ppm: "910 - 1260 ppm" },
+  { id: 14, name: "Collard Greens", ph: "5.5 - 6.8", ppm: "1120 - 1750 ppm" },
+  { id: 15, name: "Cucumber", ph: "5.8 - 6.0", ppm: "1190 - 1750 ppm" },
 ];
 
 export default function CreateTower() {
@@ -36,6 +48,14 @@ export default function CreateTower() {
 
   const makeDate = (day) => new Date(year, month, day);
 
+  // Helper to format date as YYYY-MM-DD
+  const formatDateLocal = (d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const handleDateClick = (day) => {
     const clickedDate = makeDate(day);
 
@@ -60,13 +80,46 @@ export default function CreateTower() {
     return startDate && date.getTime() === startDate.getTime();
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert(
-      `Tower created!\nPlant: ${selectedPlant}\nTime: ${wateringTime}\nFrequency: ${wateringFrequency}\nPeriod: ${startDate ? startDate.toDateString() : ''} → ${endDate ? endDate.toDateString() : ''}`
-    );
 
-    router.push('/managetower');
+    const plant = plants.find((p) => p.name === selectedPlant);
+
+    if (!plant || !wateringTime || !wateringFrequency || !startDate || !endDate) {
+      alert('Please complete all fields before submitting');
+      return;
+    }
+
+    const payload = {
+      user: { id: 1 },
+      plant: { id: plant.id },
+      time: wateringTime + ':00',
+      water_level: 123,
+      frequency: parseInt(wateringFrequency),
+      start_date: formatDateLocal(startDate),
+      end_date: formatDateLocal(endDate)
+    };
+
+    try {
+      const res = await fetch('http://localhost:8080/api/tower', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      console.log('Tower created:', data);
+      alert('Tower successfully created!');
+      router.push('/managetower');
+
+    } catch (err) {
+      console.error('Failed to create tower:', err);
+      alert('Error creating tower');
+    }
   };
 
   const prevMonth = () => {
@@ -125,7 +178,7 @@ export default function CreateTower() {
               >
                 <option value="">Choose your plant variety</option>
                 {plants.map((plant) => (
-                  <option key={plant.name} value={plant.name}>
+                  <option key={plant.id} value={plant.name}>
                     {plant.name}
                   </option>
                 ))}
@@ -181,7 +234,7 @@ export default function CreateTower() {
                 <option value="1">Once a day</option>
                 <option value="2">Twice a day</option>
                 <option value="3">3 times a day</option>
-                <option value="custom">Custom</option>
+                <option value="4">Custom</option>
               </select>
             </div>
 

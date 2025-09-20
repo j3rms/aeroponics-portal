@@ -21,16 +21,15 @@ const LandingPage = () => {
               className="space-y-8"
             >
               <motion.h1
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 0.8, delay: 0.2 }}
-  className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight 
-             bg-gradient-to-r from-green-500 to-emerald-600 
-             bg-clip-text text-transparent"
->
-  Revolutionizing Farming with Aeroponics
-</motion.h1>
-
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight 
+                           bg-gradient-to-r from-green-500 to-emerald-600 
+                           bg-clip-text text-transparent"
+              >
+                Revolutionizing Farming with Aeroponics
+              </motion.h1>
 
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -50,18 +49,16 @@ const LandingPage = () => {
                 className="flex flex-col sm:flex-row gap-4"
               >
                 <Link href="/login">
-              <HeroButton
-               variant="primary"
-               size="lg"
-                className="group bg-gradient-to-r from-green-500 to-emerald-600 text-white 
-               hover:from-green-600 hover:to-emerald-700 
-               px-10 min-w-[260px]"
-                   >
-             Get Started Today
-  
-        </HeroButton>
-        </Link>
-                
+                  <HeroButton
+                    variant="primary"
+                    size="lg"
+                    className="group bg-gradient-to-r from-green-500 to-emerald-600 text-white 
+                               hover:from-green-600 hover:to-emerald-700 
+                               px-10 min-w-[260px]"
+                  >
+                    Get Started Today
+                  </HeroButton>
+                </Link>
               </motion.div>
             </motion.div>
 
@@ -200,9 +197,6 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
-
-   
-     
     </div>
   );
 };
