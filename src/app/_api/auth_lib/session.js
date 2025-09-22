@@ -21,7 +21,8 @@ export async function decrypt(session) {
       algorithms: ["HS256"],
     });
 
-    const userEndpoint = `${url()}  /user`;
+    const userEndpoint = `${url()}/user/profile`;
+
     try {
       const userProfile = await fetch(userEndpoint, {
         method: "GET",
@@ -60,26 +61,28 @@ export async function decrypt(session) {
 }
 
 export async function createSession(accessToken, user, req) {
-  const session = await encrypt({ accessToken });
+  const session = await encrypt({
+    accessToken,
+    userId: user.id, // add userId here
+  });
 
   const isHttps =
     req?.headers["x-forwarded-proto"] === "https" || req?.protocol === "https";
 
-  // Set 'session' cookie
   (await cookies()).set("session", session, {
-    httpOnly: true, // HTTP only for security
+    httpOnly: true,
     secure: isHttps,
-    sameSite: "lax", // Default to Lax for session protection
-    path: "/", // Make the cookie accessible site-wide
+    sameSite: "lax",
+    path: "/",
   });
 
-  // Set 'user' cookie (client-accessible if needed)
   (await cookies()).set("user", JSON.stringify(user), {
     secure: isHttps,
-    sameSite: "lax", // SameSite Lax for similar behavior
-    path: "/", // Accessible site-wide
+    sameSite: "lax",
+    path: "/",
   });
 }
+
 
 export async function updateSession() {
   const session = (await cookies()).get("session").value;
@@ -112,4 +115,10 @@ export async function getToken() {
   const session = (await decrypt(cookie)).payload;
 
   return session?.accessToken;
+}
+
+export async function getUserId() {
+  const cookie = (await cookies()).get("session")?.value;
+  const session = (await decrypt(cookie)).payload;
+  return session?.userId; // Assumes userId is in the JWT payload
 }

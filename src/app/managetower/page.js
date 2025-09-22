@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import axios from "axios"; // install if not already: npm install axios
+// import axios from "axios"; // install if not already: npm install axios
 import { Pencil, Trash2, Plus } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Link from "next/link";
@@ -9,39 +9,44 @@ import Link from "next/link";
 export default function ManageTower() {
   const [towers, setTowers] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  
   // Fetch towers from backend API
   useEffect(() => {
-    const fetchTowers = async () => {
-      try {
-        const response = await axios.get("http://localhost:8080/api/tower/user/1");
+  const fetchTowers = async () => {
+    try {
+      // Fetch towers using parsedUser directly (not state)
+      const towersFromApi = await fetch(`apis/getAllUserTowers`);
+      const towersResponse = await towersFromApi.json();
 
-        // Extract the array of towers from API
-        const towersFromApi = response.data.data;
+      const mappedTowers = towersResponse.data.data.map((tower) => ({
+        id: tower.id,
+        name: tower.plant?.name || `Tower ${tower.id}`,
+        image: "/images/tower.png",
+      }));
 
-        // Map API data into the Tower format expected by the UI
-        const mappedTowers = towersFromApi.map((tower) => ({
-          id: tower.id,
-          name: tower.plant?.name || `Tower ${tower.id}`, // use plant name
-          image: "/images/tower.png", // fallback since API has no image field
-        }));
+      setTowers(mappedTowers);
+    } catch (error) {
+      console.error("Error fetching towers:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        setTowers(mappedTowers);
-      } catch (error) {
-        console.error("Error fetching towers:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTowers();
-  }, []);
+  fetchTowers();
+}, []);
 
   const handleDeleteTower = async (id) => {
     try {
-      await axios.delete(`http://localhost:8080/api/tower/${id}`);
+      const response = await fetch(`/apis/deleteTower/${id}`, {
+        method: "DELETE",
+      });
+        
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to delete tower");
+      }
 
-      // Remove from UI after successful delete
+      // Remove from UI only if backend confirms success
       setTowers((prev) => prev.filter((tower) => tower.id !== id));
     } catch (error) {
       console.error("Error deleting tower:", error);

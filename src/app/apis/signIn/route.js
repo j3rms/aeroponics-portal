@@ -44,7 +44,7 @@ export async function POST(req) {
 
     const accessToken = oauthData.access_token;
 
-    const userEndpoint = `${url()}/user`;
+    const userEndpoint = `${url()}/user/profile`;
 
     const userProfile = await fetch(userEndpoint, {
       method: "GET",
