@@ -1,14 +1,13 @@
 'use client';
-
 import { useState } from 'react';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
-import { Clock, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 // Plant list
 const plants = [
-  { id: 1, name: "Arugula", ph: "5.5 - 6.8", ppm: "560 - 980 ppm" },
+  { id: 16, name: "Arugula", ph: "5.5 - 6.8", ppm: "560 - 980 ppm" },
   { id: 2, name: "Basil", ph: "5.5 - 6.5", ppm: "700 - 1120 ppm" },
   { id: 3, name: "Bean", ph: "6.0 - 6.5", ppm: "1400 - 1680 ppm" },
   { id: 4, name: "Bok Choy", ph: "6.5 - 7.0", ppm: "1050 - 1400 ppm" },
@@ -27,11 +26,23 @@ const plants = [
 
 export default function CreateTower() {
   const router = useRouter();
+
+  const [towerName, setTowerName] = useState('');
   const [selectedPlant, setSelectedPlant] = useState('');
+  const [customPlantData, setCustomPlantData] = useState(null);
+
   const [wateringTime, setWateringTime] = useState('');
   const [wateringFrequency, setWateringFrequency] = useState('');
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
+
+  // Modal state
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customPhMin, setCustomPhMin] = useState('');
+  const [customPhMax, setCustomPhMax] = useState('');
+  const [customPpmMin, setCustomPpmMin] = useState('');
+  const [customPpmMax, setCustomPpmMax] = useState('');
 
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth());
@@ -48,7 +59,7 @@ export default function CreateTower() {
 
   const makeDate = (day) => new Date(year, month, day);
 
-  // Helper to format date as YYYY-MM-DD
+  // Format date as YYYY-MM-DD
   const formatDateLocal = (d) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -58,7 +69,6 @@ export default function CreateTower() {
 
   const handleDateClick = (day) => {
     const clickedDate = makeDate(day);
-
     if (!startDate || (startDate && endDate)) {
       setStartDate(clickedDate);
       setEndDate(null);
@@ -80,42 +90,74 @@ export default function CreateTower() {
     return startDate && date.getTime() === startDate.getTime();
   };
 
+  // Handle dropdown selection
+  const handlePlantChange = (value) => {
+    if (value === 'custom') {
+      setShowCustomModal(true);
+    } else {
+      setSelectedPlant(value);
+      setCustomPlantData(null);
+    }
+  };
+
+  // Save custom plant
+  const handleCustomSave = () => {
+    if (!customName || !customPhMin || !customPhMax || !customPpmMin || !customPpmMax) {
+      alert('Please fill all custom plant fields');
+      return;
+    }
+    const customPlant = {
+      id: null,
+      name: customName,
+      ph: `${customPhMin} - ${customPhMax}`,
+      ppm: `${customPpmMin} - ${customPpmMax} ppm`,
+    };
+    setCustomPlantData(customPlant);
+    setSelectedPlant('custom');
+    setShowCustomModal(false);
+
+    // Reset modal fields
+    setCustomName('');
+    setCustomPhMin('');
+    setCustomPhMax('');
+    setCustomPpmMin('');
+    setCustomPpmMax('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const plant = plants.find((p) => p.name === selectedPlant);
+    const plant =
+      selectedPlant === 'custom' ? customPlantData : plants.find((p) => p.name === selectedPlant);
 
-    if (!plant || !wateringTime || !wateringFrequency || !startDate || !endDate) {
+    if (!towerName || !plant || !wateringTime || !wateringFrequency || !startDate || !endDate) {
       alert('Please complete all fields before submitting');
       return;
     }
 
     const payload = {
+      towerName,
       user: { id: 1 },
-      plant: { id: plant.id },
+      plant: { id: plant.id, name: plant.name },
       time: wateringTime + ':00',
       water_level: 123,
       frequency: parseInt(wateringFrequency),
       start_date: formatDateLocal(startDate),
-      end_date: formatDateLocal(endDate)
+      end_date: formatDateLocal(endDate),
     };
 
     try {
-      const res = await fetch('http://localhost:8080/api/tower', {
+      const res = await fetch('/apis/addTower', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
         throw new Error(`Error: ${res.status}`);
       }
-
       const data = await res.json();
       console.log('Tower created:', data);
       alert('Tower successfully created!');
       router.push('/managetower');
-
     } catch (err) {
       console.error('Failed to create tower:', err);
       alert('Error creating tower');
@@ -154,26 +196,26 @@ export default function CreateTower() {
           </p>
 
           {/* Form */}
-          <form
-            onSubmit={handleSubmit}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-          >
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            {/* Tower Name */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6 lg:col-span-2">
+              <h2 className="font-semibold text-lg text-gray-800 mb-3">Tower Name</h2>
+              <input
+                type="text"
+                value={towerName}
+                onChange={(e) => setTowerName(e.target.value)}
+                placeholder="Enter tower name"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
+              />
+            </div>
+
             {/* Step 1 - Select Plant */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 flex items-center justify-center rounded-full bg-green-600 text-white font-semibold text-sm">
-                  1
-                </div>
-                <h2 className="font-semibold text-lg text-gray-800">
-                  Select Your Plant
-                </h2>
-              </div>
-              <p className="text-sm text-gray-500 mb-4">
-                Choose the plant variety for your tower
-              </p>
+              <h2 className="font-semibold text-lg text-gray-800 mb-3">Select Your Plant</h2>
               <select
                 value={selectedPlant}
-                onChange={(e) => setSelectedPlant(e.target.value)}
+                onChange={(e) => handlePlantChange(e.target.value)}
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
               >
                 <option value="">Choose your plant variety</option>
@@ -182,35 +224,33 @@ export default function CreateTower() {
                     {plant.name}
                   </option>
                 ))}
+                <option value="custom">+ Custom Plant</option>
               </select>
 
-              {selectedPlant && (
+              {/* Plant Info */}
+              {selectedPlant && selectedPlant !== 'custom' && (
                 <div className="mt-4 text-sm text-gray-600">
                   <p>
-                    <strong>pH:</strong>{' '}
-                    {plants.find((p) => p.name === selectedPlant)?.ph}
+                    <strong>pH:</strong> {plants.find((p) => p.name === selectedPlant)?.ph}
                   </p>
                   <p>
-                    <strong>PPM:</strong>{' '}
-                    {plants.find((p) => p.name === selectedPlant)?.ppm}
+                    <strong>PPM:</strong> {plants.find((p) => p.name === selectedPlant)?.ppm}
                   </p>
+                </div>
+              )}
+
+              {selectedPlant === 'custom' && customPlantData && (
+                <div className="mt-4 text-sm text-gray-600">
+                  <p><strong>Plant:</strong> {customPlantData.name}</p>
+                  <p><strong>pH:</strong> {customPlantData.ph}</p>
+                  <p><strong>PPM:</strong> {customPlantData.ppm}</p>
                 </div>
               )}
             </div>
 
             {/* Step 2 - Watering Schedule */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 flex items-center justify-center rounded-full bg-green-600 text-white font-semibold text-sm">
-                  2
-                </div>
-                <h2 className="font-semibold text-lg text-gray-800">
-                  Watering Schedule
-                </h2>
-              </div>
-              <p className="text-sm text-gray-500 mb-4">
-                Configure when and how often to water
-              </p>
+              <h2 className="font-semibold text-lg text-gray-800 mb-3">Watering Schedule</h2>
 
               <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
                 <Clock className="w-4 h-4" /> Watering Time
@@ -240,35 +280,17 @@ export default function CreateTower() {
 
             {/* Step 3 - Calendar */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6 lg:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-7 h-7 flex items-center justify-center rounded-full bg-green-600 text-white font-semibold text-sm">
-                  3
-                </div>
-                <h2 className="font-semibold text-lg text-gray-800">
-                  Select Watering Period
-                </h2>
-              </div>
-              <p className="text-sm text-gray-500 mb-6">
-                Choose a start and end date for the watering system
-              </p>
+              <h2 className="font-semibold text-lg text-gray-800 mb-3">Select Watering Period</h2>
 
               {/* Month navigation */}
               <div className="flex justify-between items-center mb-4">
-                <button
-                  type="button"
-                  onClick={prevMonth}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
+                <button type="button" onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg">
                   <ChevronLeft className="w-5 h-5 text-gray-600" />
                 </button>
                 <h3 className="text-lg font-semibold text-gray-800">
                   {monthNames[month]} {year}
                 </h3>
-                <button
-                  type="button"
-                  onClick={nextMonth}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
+                <button type="button" onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg">
                   <ChevronRight className="w-5 h-5 text-gray-600" />
                 </button>
               </div>
@@ -290,12 +312,11 @@ export default function CreateTower() {
                     type="button"
                     key={day}
                     onClick={() => handleDateClick(day)}
-                    className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm transition
-                      ${
-                        isSelected(day)
-                          ? 'bg-green-600 text-white font-semibold shadow-md'
-                          : 'bg-gray-100 text-gray-600 hover:bg-green-100'
-                      }`}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm transition ${
+                      isSelected(day)
+                        ? 'bg-green-600 text-white font-semibold shadow-md'
+                        : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+                    }`}
                   >
                     {day}
                   </button>
@@ -324,7 +345,73 @@ export default function CreateTower() {
             </button>
           </div>
         </main>
+        <Footer />
       </div>
+
+      {/* Custom Plant Modal */}
+      {showCustomModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
+            <button
+              onClick={() => setShowCustomModal(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Add Custom Plant</h2>
+
+            <input
+              type="text"
+              placeholder="Plant Name"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-200"
+            />
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Min pH"
+                value={customPhMin}
+                onChange={(e) => setCustomPhMin(e.target.value)}
+                className="px-4 py-2 rounded-lg border border-gray-200"
+              />
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Max pH"
+                value={customPhMax}
+                onChange={(e) => setCustomPhMax(e.target.value)}
+                className="px-4 py-2 rounded-lg border border-gray-200"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <input
+                type="number"
+                placeholder="Min PPM"
+                value={customPpmMin}
+                onChange={(e) => setCustomPpmMin(e.target.value)}
+                className="px-4 py-2 rounded-lg border border-gray-200"
+              />
+              <input
+                type="number"
+                placeholder="Max PPM"
+                value={customPpmMax}
+                onChange={(e) => setCustomPpmMax(e.target.value)}
+                className="px-4 py-2 rounded-lg border border-gray-200"
+              />
+            </div>
+
+            <button
+              onClick={handleCustomSave}
+              className="w-full bg-green-600 text-white py-2 rounded-lg shadow-md hover:bg-green-700 transition"
+            >
+              Save Plant
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
