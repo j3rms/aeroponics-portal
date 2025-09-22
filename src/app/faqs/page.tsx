@@ -30,59 +30,55 @@ const faqs = [
 export default function FaqPage() {
   const [activeIndex, setActiveIndex] = useState(null);
 
-  const toggleFaq = (index: number) => {
+  const toggleFaq = (index) => {
     setActiveIndex(activeIndex === index ? null : index);
   };
 
   return (
-    <div className="flex min-h-screen bg-green-50 pl-64">
+    <div className="flex min-h-screen bg-white pl-64">
       <Sidebar />
 
       <div className="flex flex-col flex-1">
-        <main className="flex-1 max-w-4xl mx-auto w-full px-10 py-12">
-          {/* Page Title */}
+        <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-12">
+          {/* Title */}
           <motion.h1
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+            transition={{ duration: 0.4 }}
+            className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2"
           >
-            Frequently Asked Questions
+            FAQs
           </motion.h1>
-          <p className="text-gray-600 text-base md:text-lg mb-12">
-            Find quick answers to common questions about your aeroponics system.
+          <p className="text-gray-500 text-sm md:text-base mb-10">
+            Answers to common questions about your aeroponics system.
           </p>
 
-          {/* FAQ List */}
-          <section className="space-y-6">
+          {/* FAQs */}
+          <section className="space-y-4">
             {faqs.map((faq, index) => (
-              <motion.div
+              <div
                 key={index}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 cursor-pointer"
                 onClick={() => toggleFaq(index)}
+                className="border-b border-gray-200 pb-4 cursor-pointer group"
               >
                 <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-lg text-green-800">
+                  <h3 className="text-gray-800 font-medium group-hover:text-green-700 transition">
                     {faq.question}
                   </h3>
                   <span className="text-gray-400 text-xl">
-                    {activeIndex === index ? "-" : "+"}
+                    {activeIndex === index ? "−" : "+"}
                   </span>
                 </div>
                 {activeIndex === index && (
                   <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="mt-4 text-gray-700"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-gray-600 mt-3 text-sm leading-relaxed"
                   >
                     {faq.answer}
                   </motion.p>
                 )}
-              </motion.div>
+              </div>
             ))}
           </section>
         </main>
