@@ -50,7 +50,7 @@ export default function FaqPage() {
             FAQs
           </motion.h1>
           <p className="text-gray-500 text-sm md:text-base mb-10">
-            Answers to common questions about your aeroponics system.
+            Common questions about aeroponics monitoring system.
           </p>
 
           {/* FAQs */}
