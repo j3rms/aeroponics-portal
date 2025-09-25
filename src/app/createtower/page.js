@@ -59,7 +59,7 @@ export default function CreateTower() {
 
   const makeDate = (day) => new Date(year, month, day);
 
-  // Format date as YYYY-MM-DD
+  // Helper to format date as YYYY-MM-DD
   const formatDateLocal = (d) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
