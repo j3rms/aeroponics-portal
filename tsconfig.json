@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
+    "baseUrl": ".",
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,9 +20,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/addplants/page.tsx", "src/app/login/page.js", "src/app/signup/page.js", "src/components/sidebar.js", "src/components/ui/card.js", "src/components/ui/featurecard.js", "src/components/ui/herobutton.js", "src/app/dashboard/page.js", "src/app/managetower/page.js", "src/app/createtower/page.js", "src/app/logs/page.js", "src/app/account/page.js", "src/app/landing/page.js"],
   "exclude": ["node_modules"]
 }

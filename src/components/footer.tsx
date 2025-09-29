@@ -1,18 +1,34 @@
+"use client";
+
+import Link from "next/link";
+
 export default function Footer() {
-    return (
-        <footer className="bg-red-800 text-white py-4 px-3 w-full flex flex-col md:flex-row">
-            <div className="container mx-auto flex flex-wrap items-center justify-between">
-                <div className="w-full md:w-auto md:mb-0 mb-8 text-left">
-                    <p className="text-xs md:text-sm">Copyright 2025 &copy; All Rights Reserved.</p>
-                </div>
-                <div className="w-full md:w-auto md:mb-0 mb-8 text-right">
-                    <ul className="list-reset flex justify-end flex-wrap text-xs md:text-sm gap-3">
-                        <li><a href="#" className="hover:text-white">Contact</a></li>
-                        <li className="mx-4"><a href="#" className="hover:text-white">Privacy Policy</a></li>
-                        <li><a href="#" className="hover:text-white">Terms of Use</a></li>
-                    </ul>
-                </div>
-            </div>
-        </footer>
-    )
+  return (
+    <footer className="bg-green-700 text-white shadow-inner mt-10">
+      <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+        {/* Brand */}
+        <div className="font-bold text-lg tracking-wide">
+          🌱 UrbanFarm
+        </div>
+
+        {/* Footer Links */}
+        <nav className="flex space-x-6 text-sm font-medium">
+          <Link href="/about" className="hover:text-green-200 transition">
+            About
+          </Link>
+          <Link href="/contact" className="hover:text-green-200 transition">
+            Contact
+          </Link>
+          <Link href="/privacy" className="hover:text-green-200 transition">
+            Privacy Policy
+          </Link>
+        </nav>
+
+        {/* Copyright */}
+        <div className="text-xs text-green-200">
+          © {new Date().getFullYear()} UrbanFarm. All rights reserved.
+        </div>
+      </div>
+    </footer>
+  );
 }
