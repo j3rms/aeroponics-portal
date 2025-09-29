@@ -1,42 +1,31 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
 import { Clock, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-// Plant list
-const plants = [
-  { id: 16, name: "Arugula", ph: "5.5 - 6.8", ppm: "560 - 980 ppm" },
-  { id: 2, name: "Basil", ph: "5.5 - 6.5", ppm: "700 - 1120 ppm" },
-  { id: 3, name: "Bean", ph: "6.0 - 6.5", ppm: "1400 - 1680 ppm" },
-  { id: 4, name: "Bok Choy", ph: "6.5 - 7.0", ppm: "1050 - 1400 ppm" },
-  { id: 5, name: "Broccoli", ph: "6.0 - 6.5", ppm: "1960 - 2450 ppm" },
-  { id: 6, name: "Brussel Sprouts", ph: "6.5 - 7.5", ppm: "1750 - 2100 ppm" },
-  { id: 7, name: "Bunching Onion", ph: "5.5 - 6.8", ppm: "1260 - 1680 ppm" },
-  { id: 8, name: "Cabbage", ph: "6.5 - 7.0", ppm: "1750 - 2100 ppm" },
-  { id: 9, name: "Cauliflower", ph: "6.0 - 7.0", ppm: "1050 - 1400 ppm" },
-  { id: 10, name: "Celery", ph: "6.3 - 6.7", ppm: "1260 - 1680 ppm" },
-  { id: 11, name: "Chamomile", ph: "5.5 - 6.5", ppm: "560 - 980 ppm" },
-  { id: 12, name: "Chives", ph: "6.0 - 6.5", ppm: "1260 - 1680 ppm" },
-  { id: 13, name: "Cilantro", ph: "6.5 - 6.7", ppm: "910 - 1260 ppm" },
-  { id: 14, name: "Collard Greens", ph: "5.5 - 6.8", ppm: "1120 - 1750 ppm" },
-  { id: 15, name: "Cucumber", ph: "5.8 - 6.0", ppm: "1190 - 1750 ppm" },
-];
-
 export default function CreateTower() {
   const router = useRouter();
+
+  const [plants, setPlants] = useState([]);
+  const [plantsLoading, setPlantsLoading] = useState(true);
 
   const [towerName, setTowerName] = useState('');
   const [selectedPlant, setSelectedPlant] = useState('');
   const [customPlantData, setCustomPlantData] = useState(null);
 
-  const [wateringTime, setWateringTime] = useState('');
+  // Watering states
   const [wateringFrequency, setWateringFrequency] = useState('');
+  const [wateringTimes, setWateringTimes] = useState([]);
+  const [customFrequency, setCustomFrequency] = useState('');
+  const [showFrequencyModal, setShowFrequencyModal] = useState(false);
+
+  // Calendar states
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  // Modal state
+  // Custom plant modal states
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customPhMin, setCustomPhMin] = useState('');
@@ -44,6 +33,7 @@ export default function CreateTower() {
   const [customPpmMin, setCustomPpmMin] = useState('');
   const [customPpmMax, setCustomPpmMax] = useState('');
 
+  // Calendar setup
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth());
   const [year, setYear] = useState(today.getFullYear());
@@ -57,9 +47,41 @@ export default function CreateTower() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay();
 
+  useEffect(() => {
+    const fetchPlants = async () => {
+      try {
+        setPlantsLoading(true);
+        const response = await fetch('/apis/getAllPlants');
+        const result = await response.json();
+        
+        if (result.success && result.data && result.data.data) {
+          // Transform backend data to match frontend format
+          const transformedPlants = result.data.data.map(plant => ({
+            id: plant.id,
+            name: plant.name,
+            ph: `${plant.min_ph_level} - ${plant.max_ph_level}`,
+            ppm: `${plant.min_ppm} - ${plant.max_ppm} ppm`
+          }));
+          setPlants(transformedPlants);
+        } else {
+          console.error('Failed to fetch plants:', result.message);
+          // Fallback to empty array if API fails
+          setPlants([]);
+        }
+      } catch (error) {
+        console.error('Error fetching plants:', error);
+        // Fallback to empty array if API fails
+        setPlants([]);
+      } finally {
+        setPlantsLoading(false);
+      }
+    };
+
+    fetchPlants();
+  }, []);
+
   const makeDate = (day) => new Date(year, month, day);
 
-  // Helper to format date as YYYY-MM-DD
   const formatDateLocal = (d) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -90,7 +112,7 @@ export default function CreateTower() {
     return startDate && date.getTime() === startDate.getTime();
   };
 
-  // Handle dropdown selection
+  // Plant dropdown
   const handlePlantChange = (value) => {
     if (value === 'custom') {
       setShowCustomModal(true);
@@ -116,7 +138,6 @@ export default function CreateTower() {
     setSelectedPlant('custom');
     setShowCustomModal(false);
 
-    // Reset modal fields
     setCustomName('');
     setCustomPhMin('');
     setCustomPhMax('');
@@ -124,6 +145,60 @@ export default function CreateTower() {
     setCustomPpmMax('');
   };
 
+  // Utility: generate times with 6hr interval starting at 08:00
+  const generateDefaultTimes = (count) => {
+    const times = [];
+    let hour = 8;
+    for (let i = 0; i < count; i++) {
+      const h = String(hour).padStart(2, '0');
+      times.push(`${h}:00`);
+      hour = (hour + 6) % 24;
+    }
+    return times;
+  };
+
+  // Frequency dropdown
+  // Frequency dropdown
+const handleFrequencyChange = (value) => {
+  if (value === 'custom') {
+    setShowFrequencyModal(true);
+  } else {
+    setWateringFrequency(value);
+    const freq = parseInt(value);
+    if (!isNaN(freq)) {
+      setWateringTimes(generateDefaultTimes(freq)); // default 8:00 + 6hr interval
+    } else {
+      setWateringTimes([]);
+    }
+  }
+};
+
+
+  // Save custom frequency
+  // Save custom frequency
+const handleCustomFrequencySave = () => {
+  const freq = parseInt(customFrequency);
+  if (!freq || freq <= 0) {
+    alert('Please enter a valid custom frequency');
+    return;
+  }
+  setWateringFrequency(freq.toString());
+
+  // 👉 For custom, create empty slots instead of default times
+  setWateringTimes(Array(freq).fill(""));
+
+  setShowFrequencyModal(false);
+  setCustomFrequency('');
+};
+
+  // Update individual watering time
+  const handleTimeChange = (index, value) => {
+    const updated = [...wateringTimes];
+    updated[index] = value;
+    setWateringTimes(updated);
+  };
+
+  // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -139,7 +214,7 @@ export default function CreateTower() {
       towerName,
       user: { id: 1 },
       plant: { id: plant.id, name: plant.name },
-      time: wateringTime + ':00',
+      times: wateringTimes.map(t => t + ':00'),
       water_level: 123,
       frequency: parseInt(wateringFrequency),
       start_date: formatDateLocal(startDate),
@@ -151,9 +226,7 @@ export default function CreateTower() {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        throw new Error(`Error: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Error: ${res.status}`);
       const data = await res.json();
       console.log('Tower created:', data);
       alert('Tower successfully created!');
@@ -184,18 +257,12 @@ export default function CreateTower() {
 
   return (
     <div className="flex min-h-screen bg-green-50 pl-64">
-      {/* Sidebar */}
       <Sidebar />
-
-      {/* Main Content */}
       <div className="flex flex-col flex-1">
         <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Create Tower</h1>
-          <p className="text-gray-600 mb-10">
-            Set up your aeroponics system for optimal plant growth
-          </p>
+          <p className="text-gray-600 mb-10">Set up your aeroponics system for optimal plant growth</p>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
             {/* Tower Name */}
@@ -210,32 +277,26 @@ export default function CreateTower() {
               />
             </div>
 
-            {/* Step 1 - Select Plant */}
+            {/* Plant */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
               <h2 className="font-semibold text-lg text-gray-800 mb-3">Select Your Plant</h2>
               <select
                 value={selectedPlant}
                 onChange={(e) => handlePlantChange(e.target.value)}
+                disabled={plantsLoading}
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
               >
-                <option value="">Choose your plant variety</option>
-                {plants.map((plant) => (
-                  <option key={plant.id} value={plant.name}>
-                    {plant.name}
-                  </option>
-                ))}
-                <option value="custom">+ Custom Plant</option>
-              </select>
+                  <option value="">Choose your plant variety</option>
+                  {plants.map((plant) => (
+                    <option key={plant.id} value={plant.name}>{plant.name}</option>
+                  ))}
+                  <option value="custom">+ Custom Plant</option>
+                </select>
 
-              {/* Plant Info */}
               {selectedPlant && selectedPlant !== 'custom' && (
                 <div className="mt-4 text-sm text-gray-600">
-                  <p>
-                    <strong>pH:</strong> {plants.find((p) => p.name === selectedPlant)?.ph}
-                  </p>
-                  <p>
-                    <strong>PPM:</strong> {plants.find((p) => p.name === selectedPlant)?.ppm}
-                  </p>
+                  <p><strong>pH:</strong> {plants.find((p) => p.name === selectedPlant)?.ph}</p>
+                  <p><strong>PPM:</strong> {plants.find((p) => p.name === selectedPlant)?.ppm}</p>
                 </div>
               )}
 
@@ -248,93 +309,112 @@ export default function CreateTower() {
               )}
             </div>
 
-            {/* Step 2 - Watering Schedule */}
+            {/* Watering Schedule */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
               <h2 className="font-semibold text-lg text-gray-800 mb-3">Watering Schedule</h2>
 
-              <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-                <Clock className="w-4 h-4" /> Watering Time
-              </label>
-              <input
-                type="time"
-                value={wateringTime}
-                onChange={(e) => setWateringTime(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400 mb-4"
-              />
-
+              {/* Watering Frequency */}
               <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
                 <RefreshCw className="w-4 h-4" /> Watering Frequency
               </label>
               <select
                 value={wateringFrequency}
-                onChange={(e) => setWateringFrequency(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
+                onChange={(e) => handleFrequencyChange(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400 mb-4"
               >
                 <option value="">Select frequency</option>
                 <option value="1">Once a day</option>
                 <option value="2">Twice a day</option>
                 <option value="3">3 times a day</option>
-                <option value="4">Custom</option>
+                <option value="custom">Custom</option>
               </select>
-            </div>
 
-            {/* Step 3 - Calendar */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6 lg:col-span-2">
-              <h2 className="font-semibold text-lg text-gray-800 mb-3">Select Watering Period</h2>
-
-              {/* Month navigation */}
-              <div className="flex justify-between items-center mb-4">
-                <button type="button" onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg">
-                  <ChevronLeft className="w-5 h-5 text-gray-600" />
-                </button>
-                <h3 className="text-lg font-semibold text-gray-800">
-                  {monthNames[month]} {year}
-                </h3>
-                <button type="button" onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg">
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
-                </button>
-              </div>
-
-              {/* Weekdays */}
-              <div className="grid grid-cols-7 text-center font-medium text-gray-500 mb-2">
-                {weekDays.map((day) => (
-                  <div key={day}>{day}</div>
-                ))}
-              </div>
-
-              {/* Days */}
-              <div className="grid grid-cols-7 gap-2 text-center">
-                {Array.from({ length: firstDayOfMonth }).map((_, idx) => (
-                  <div key={idx}></div>
-                ))}
-                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
-                  <button
-                    type="button"
-                    key={day}
-                    onClick={() => handleDateClick(day)}
-                    className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm transition ${
-                      isSelected(day)
-                        ? 'bg-green-600 text-white font-semibold shadow-md'
-                        : 'bg-gray-100 text-gray-600 hover:bg-green-100'
-                    }`}
-                  >
-                    {day}
-                  </button>
-                ))}
-              </div>
-
-              {/* Selected Dates Summary */}
-              {(startDate || endDate) && (
-                <p className="mt-4 text-sm text-gray-700">
-                  <strong>Selected range:</strong>{' '}
-                  {startDate ? startDate.toDateString() : ''}{' '}
-                  {endDate ? `→ ${endDate.toDateString()}` : ''}
-                </p>
+              {/* Dynamic Watering Times */}
+              {wateringTimes.length > 0 && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> Watering Times
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {wateringTimes.map((time, index) => (
+                      <div key={index} className="flex flex-col">
+                        <span className="text-xs text-gray-500 mb-1">Time {index + 1}</span>
+                        <input
+                          type="time"
+                          value={time}
+                          onChange={(e) => handleTimeChange(index, e.target.value)}
+                          className="px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
+
+            {/* Calendar */}
+<div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6 lg:col-span-2">
+  <h2 className="font-semibold text-lg text-gray-800 mb-3">Select Watering Period</h2>
+
+  {/* Month navigation */}
+  <div className="flex justify-between items-center mb-4">
+    <button type="button" onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg">
+      <ChevronLeft className="w-5 h-5 text-gray-600" />
+    </button>
+    <h3 className="text-lg font-semibold text-gray-800">{monthNames[month]} {year}</h3>
+    <button type="button" onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg">
+      <ChevronRight className="w-5 h-5 text-gray-600" />
+    </button>
+  </div>
+
+  {/* Weekdays */}
+<div className="grid grid-cols-7 text-center font-medium text-gray-500 mb-2 w-full">
+  {weekDays.map((day) => (
+    <div key={day} className="flex items-center justify-center">
+      {day}
+    </div>
+  ))}
+</div>
+
+{/* Days */}
+<div className="grid grid-cols-7 gap-2 text-center w-full">
+  {/* Empty slots before the first day */}
+  {Array.from({ length: firstDayOfMonth }).map((_, idx) => (
+    <div key={idx} className="flex items-center justify-center"></div>
+  ))}
+
+  {/* Days in month */}
+  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
+    <button
+      type="button"
+      key={day}
+      onClick={() => handleDateClick(day)}
+      className={`w-9 h-9 flex items-center justify-center rounded-md text-sm transition mx-auto
+        ${
+          isSelected(day)
+            ? 'bg-green-600 text-white font-semibold shadow-md'
+            : 'bg-gray-100 text-gray-600 hover:bg-green-100'
+        }`}
+    >
+      {day}
+    </button>
+  ))}
+</div>
+
+
+
+
+  {(startDate || endDate) && (
+    <p className="mt-4 text-sm text-gray-700">
+      <strong>Selected range:</strong>{' '}
+      {startDate ? startDate.toDateString() : ''}{' '}
+      {endDate ? `→ ${endDate.toDateString()}` : ''}
+    </p>
+  )}
+</div>
+
           </form>
 
-          {/* Submit Button */}
           <div className="mt-10 flex justify-center">
             <button
               type="submit"
@@ -350,7 +430,7 @@ export default function CreateTower() {
 
       {/* Custom Plant Modal */}
       {showCustomModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
             <button
               onClick={() => setShowCustomModal(false)}
@@ -405,9 +485,40 @@ export default function CreateTower() {
 
             <button
               onClick={handleCustomSave}
-              className="w-full bg-green-600 text-white py-2 rounded-lg shadow-md hover:bg-green-700 transition"
+              className="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700"
             >
               Save Plant
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Frequency Modal */}
+      {showFrequencyModal && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
+            <button
+              onClick={() => setShowFrequencyModal(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Custom Frequency</h2>
+
+            <input
+              type="number"
+              placeholder="Number of times per day"
+              value={customFrequency}
+              onChange={(e) => setCustomFrequency(e.target.value)}
+              className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-200"
+            />
+
+            <button
+              onClick={handleCustomFrequencySave}
+              className="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700"
+            >
+              Save Frequency
             </button>
           </div>
         </div>

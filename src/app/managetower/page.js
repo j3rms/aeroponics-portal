@@ -20,7 +20,7 @@ export default function ManageTower() {
 
       const mappedTowers = towersResponse.data.data.map((tower) => ({
         id: tower.id,
-        name: tower.plant?.name || `Tower ${tower.id}`,
+        name: tower.name || `Tower ${tower.id}`,
         image: "/images/tower.png",
       }));
 
