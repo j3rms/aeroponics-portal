@@ -87,7 +87,7 @@ export default function Signup() {
         className="flex w-full max-w-4xl h-[600px] shadow-lg rounded-xl overflow-hidden bg-white"
       >
         {/* Left Side - Form */}
-        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center overflow-y-auto">
           {/* Logo */}
           <div className="flex justify-center mb-6">
             <img
@@ -111,7 +111,7 @@ export default function Signup() {
           )}
 
           <form className="mt-6 space-y-3" onSubmit={handleSubmit}>
-            {/* First + Last Name side by side for better spacing */}
+            {/* First + Last Name */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label
