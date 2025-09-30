@@ -55,11 +55,9 @@ export default function Signup() {
     }
 
     try {
-      const response = await fetch("http://localhost:8080/api/user", {
+      const response = await fetch("/apis/signup", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
