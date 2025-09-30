@@ -1,31 +1,16 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
 import { Clock, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-// Plant list
-const plants = [
-  { id: 16, name: "Arugula", ph: "5.5 - 6.8", ppm: "560 - 980 ppm" },
-  { id: 2, name: "Basil", ph: "5.5 - 6.5", ppm: "700 - 1120 ppm" },
-  { id: 3, name: "Bean", ph: "6.0 - 6.5", ppm: "1400 - 1680 ppm" },
-  { id: 4, name: "Bok Choy", ph: "6.5 - 7.0", ppm: "1050 - 1400 ppm" },
-  { id: 5, name: "Broccoli", ph: "6.0 - 6.5", ppm: "1960 - 2450 ppm" },
-  { id: 6, name: "Brussel Sprouts", ph: "6.5 - 7.5", ppm: "1750 - 2100 ppm" },
-  { id: 7, name: "Bunching Onion", ph: "5.5 - 6.8", ppm: "1260 - 1680 ppm" },
-  { id: 8, name: "Cabbage", ph: "6.5 - 7.0", ppm: "1750 - 2100 ppm" },
-  { id: 9, name: "Cauliflower", ph: "6.0 - 7.0", ppm: "1050 - 1400 ppm" },
-  { id: 10, name: "Celery", ph: "6.3 - 6.7", ppm: "1260 - 1680 ppm" },
-  { id: 11, name: "Chamomile", ph: "5.5 - 6.5", ppm: "560 - 980 ppm" },
-  { id: 12, name: "Chives", ph: "6.0 - 6.5", ppm: "1260 - 1680 ppm" },
-  { id: 13, name: "Cilantro", ph: "6.5 - 6.7", ppm: "910 - 1260 ppm" },
-  { id: 14, name: "Collard Greens", ph: "5.5 - 6.8", ppm: "1120 - 1750 ppm" },
-  { id: 15, name: "Cucumber", ph: "5.8 - 6.0", ppm: "1190 - 1750 ppm" },
-];
-
 export default function CreateTower() {
   const router = useRouter();
+
+  const [plants, setPlants] = useState([]);
+  const [plantsLoading, setPlantsLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const [towerName, setTowerName] = useState('');
   const [selectedPlant, setSelectedPlant] = useState('');
@@ -62,6 +47,47 @@ export default function CreateTower() {
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay();
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        // Fetch current user
+        const userResponse = await fetch('/apis/getCurrentUser');
+        const userResult = await userResponse.json();
+        if (userResult.success && userResult.data) {
+          setCurrentUserId(userResult.data.userId);
+        }
+
+        // Fetch plants
+        setPlantsLoading(true);
+        const response = await fetch('/apis/getAllPlants');
+        const result = await response.json();
+        
+        if (result.success && result.data && result.data.data) {
+          // Transform backend data to match frontend format
+          const transformedPlants = result.data.data.map(plant => ({
+            id: plant.id,
+            name: plant.name,
+            ph: `${plant.min_ph_level} - ${plant.max_ph_level}`,
+            ppm: `${plant.min_ppm} - ${plant.max_ppm} ppm`,
+            isCustom: plant.user?.id !== 1, // Mark as custom if not system plant
+            userId: plant.user?.id
+          }));
+          setPlants(transformedPlants);
+        } else {
+          console.error('Failed to fetch plants:', result.message);
+          setPlants([]);
+        }
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+        setPlants([]);
+      } finally {
+        setPlantsLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
 
   const makeDate = (day) => new Date(year, month, day);
 
@@ -106,26 +132,59 @@ export default function CreateTower() {
   };
 
   // Save custom plant
-  const handleCustomSave = () => {
+  const handleCustomSave = async () => {
     if (!customName || !customPhMin || !customPhMax || !customPpmMin || !customPpmMax) {
       alert('Please fill all custom plant fields');
       return;
     }
-    const customPlant = {
-      id: null,
-      name: customName,
-      ph: `${customPhMin} - ${customPhMax}`,
-      ppm: `${customPpmMin} - ${customPpmMax} ppm`,
-    };
-    setCustomPlantData(customPlant);
-    setSelectedPlant('custom');
-    setShowCustomModal(false);
 
-    setCustomName('');
-    setCustomPhMin('');
-    setCustomPhMax('');
-    setCustomPpmMin('');
-    setCustomPpmMax('');
+    try {
+      // Save custom plant to backend
+      const response = await fetch('/apis/addPlant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: customName,
+          min_ph_level: parseFloat(customPhMin),
+          max_ph_level: parseFloat(customPhMax),
+          min_ppm: parseInt(customPpmMin),
+          max_ppm: parseInt(customPpmMax),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        alert(result.message || 'Failed to create custom plant');
+        return;
+      }
+
+      // Create custom plant object with backend ID
+      const customPlant = {
+        id: result.data?.data?.id || Date.now(), // Use backend ID or fallback
+        name: customName,
+        ph: `${customPhMin} - ${customPhMax}`,
+        ppm: `${customPpmMin} - ${customPpmMax} ppm`,
+      };
+
+      setCustomPlantData(customPlant);
+      setSelectedPlant('custom');
+      setShowCustomModal(false);
+
+      // Clear form
+      setCustomName('');
+      setCustomPhMin('');
+      setCustomPhMax('');
+      setCustomPpmMin('');
+      setCustomPpmMax('');
+
+      alert('Custom plant created successfully!');
+    } catch (error) {
+      console.error('Error creating custom plant:', error);
+      alert('Failed to create custom plant. Please try again.');
+    }
   };
 
   // Utility: generate times with 6hr interval starting at 08:00
@@ -193,30 +252,53 @@ const handleCustomFrequencySave = () => {
       return;
     }
 
+    if (!currentUserId) {
+      alert('User session not found. Please log in again.');
+      return;
+    }
+
+    // Prepare payload matching backend TowerRO structure
     const payload = {
-      towerName,
-      user: { id: 1 },
-      plant: { id: plant.id, name: plant.name },
-      times: wateringTimes.map(t => t + ':00'),
-      water_level: 123,
+      name: towerName,
+      user: { id: currentUserId }, // Use current logged-in user ID
+      plant: { id: plant.id },
+      time: wateringTimes[0], // First watering time (HH:mm format, no seconds)
+      water_level: 'MEDIUM', // Use enum value: HIGH, MEDIUM, or LOW
       frequency: parseInt(wateringFrequency),
       start_date: formatDateLocal(startDate),
       end_date: formatDateLocal(endDate),
+      status: true, // New towers are active by default
+      schedules: wateringTimes.map((time) => ({
+        id: 0, // New schedule, no ID yet
+        start_time: time // HH:mm format
+      }))
     };
+
+    console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
     try {
       const res = await fetch('/apis/addTower', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`Error: ${res.status}`);
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error('Backend error response:', errorData);
+        throw new Error(errorData.message || `Error: ${res.status}`);
+      }
+      
       const data = await res.json();
-      console.log('Tower created:', data);
+      console.log('Tower created successfully:', data);
       alert('Tower successfully created!');
-      router.push('/managetower');
+      router.push('/homepage/managetower');
     } catch (err) {
       console.error('Failed to create tower:', err);
-      alert('Error creating tower');
+      const errorMsg = err.message || 'Unknown error occurred';
+      alert(`Error creating tower: ${errorMsg}\n\nPlease check the console for more details.`);
     }
   };
 
@@ -266,14 +348,17 @@ const handleCustomFrequencySave = () => {
               <select
                 value={selectedPlant}
                 onChange={(e) => handlePlantChange(e.target.value)}
+                disabled={plantsLoading}
                 className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
               >
-                <option value="">Choose your plant variety</option>
-                {plants.map((plant) => (
-                  <option key={plant.id} value={plant.name}>{plant.name}</option>
-                ))}
-                <option value="custom">+ Custom Plant</option>
-              </select>
+                  <option value="">Choose your plant variety</option>
+                  {plants.map((plant) => (
+                    <option key={plant.id} value={plant.name}>
+                      {plant.name}{plant.isCustom ? ' (My Custom Plant)' : ''}
+                    </option>
+                  ))}
+                  <option value="custom">+ Create New Custom Plant</option>
+                </select>
 
               {selectedPlant && selectedPlant !== 'custom' && (
                 <div className="mt-4 text-sm text-gray-600">

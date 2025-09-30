@@ -44,7 +44,7 @@ export default function Login() {
         toast.remove();
         if (result.success) {
           toast.success("Signed in successfully!");
-          router.push("/dashboard");
+          router.push("/homepage/dashboard");
         } else {
           toast.success(
            result.message === "Unauthorized"

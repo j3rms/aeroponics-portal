@@ -2,26 +2,9 @@
 
 import Sidebar from "@/components/sidebar";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-// Sample hardcoded data
-const sampleData = [
-  { id: 1, towerName: "Cabbage", phLevel: 6.0, ppmLevel: 1350, waterLevel: 75, timestamp: "2025-09-16T12:31:11"},
-  { id: 2, towerName: "Lettuce", phLevel: 6.2, ppmLevel: 580, waterLevel: 82, timestamp: "2025-09-16T13:25:16"},
-  { id: 3, towerName: "Basil", phLevel: 5.8, ppmLevel: 880, waterLevel: 68, timestamp: "2025-09-16T14:22:02"},
-  { id: 4, towerName: "Kale", phLevel: 6.4, ppmLevel: 3250, waterLevel: 45, timestamp: "2025-09-16T15:19:55"},
-  { id: 5, towerName: "Spinach", phLevel: 6.9, ppmLevel: 1469, waterLevel: 60, timestamp: "2025-09-16T16:21:44"},
-  { id: 6, towerName: "Broccoli", phLevel: 6.3, ppmLevel: 2150, waterLevel: 80, timestamp: "2025-09-16T17:28:33"},
-  { id: 7, towerName: "Kale", phLevel: 6.4, ppmLevel: 3250, waterLevel: 45, timestamp: "2025-09-16T18:19:18"},
-  { id: 8, towerName: "Spinach", phLevel: 6.9, ppmLevel: 1469, waterLevel: 60, timestamp: "2025-09-16T19:41:01"},
-  { id: 9, towerName: "Broccoli", phLevel: 6.3, ppmLevel: 2150, waterLevel: 80, timestamp: "2025-09-16T20:02:21"},
-  { id: 10, towerName: "Broccoli", phLevel: 6.3, ppmLevel: 2150, waterLevel: 80, timestamp: "2025-09-16T21:10:50"},
-  { id: 11, towerName: "Kale", phLevel: 6.4, ppmLevel: 3250, waterLevel: 45, timestamp: "2025-09-16T22:08:46"},
-  { id: 12, towerName: "Spinach", phLevel: 6.9, ppmLevel: 1469, waterLevel: 60, timestamp: "2025-09-16T23:06:23"},
-  { id: 13, towerName: "Broccoli", phLevel: 6.3, ppmLevel: 2150, waterLevel: 80, timestamp: "2025-09-16T00:25:43"},
-  { id: 14, towerName: "Broccoli", phLevel: 6.3, ppmLevel: 2150, waterLevel: 80, timestamp: "2025-09-16T11:28:54"},
-  { id: 15, towerName: "Broccoli", phLevel: 6.3, ppmLevel: 2150, waterLevel: 80, timestamp: "2025-09-16T10:23:12"},
-];
+// Data is now fetched from backend via /apis/getLogs
 
 // Plant-specific thresholds
 const PLANT_THRESHOLDS = {
@@ -61,9 +44,32 @@ const getStatusColor = (type, value, plantName) => {
 
 export default function Logs() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const itemsPerPage = 12;
 
-  const sortedData = [...sampleData].sort((a, b) =>
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/apis/getLogs?limit=200`, { cache: 'no-store' });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || `Failed to fetch logs (${res.status})`);
+        }
+        setLogs(Array.isArray(data.data) ? data.data : []);
+      } catch (err) {
+        console.error('Logs fetch error:', err);
+        setError(err.message || 'Failed to load logs');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, []);
+
+  const sortedData = [...logs].sort((a, b) =>
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
 
@@ -111,7 +117,15 @@ export default function Logs() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentData.map((data, index) => (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Loading logs...</td>
+                    </tr>
+                  ) : currentData.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">No logs available</td>
+                    </tr>
+                  ) : currentData.map((data, index) => (
                     <tr
                       key={data.id}
                       className={`border-b border-gray-100 hover:bg-gray-50 ${
@@ -125,16 +139,16 @@ export default function Logs() {
                         {data.towerName}
                       </td>
                       <td className={`px-6 py-4 text-center font-semibold ${getStatusColor('ph', data.phLevel, data.towerName)}`}>
-                        {data.phLevel.toFixed(1)}
+                        {Number.isFinite(data.phLevel) ? data.phLevel.toFixed(1) : '—'}
                       </td>
                       <td className={`px-6 py-4 text-center font-semibold ${getStatusColor('ppm', data.ppmLevel, data.towerName)}`}>
-                        {data.ppmLevel.toLocaleString()}
+                        {Number.isFinite(data.ppmLevel) ? data.ppmLevel.toLocaleString() : '—'}
                       </td>
                       <td className={`px-6 py-4 text-center font-semibold ${getStatusColor('water', data.waterLevel, data.towerName)}`}>
-                        {data.waterLevel}%
+                        {Number.isFinite(data.waterLevel) ? `${data.waterLevel}%` : '—'}
                       </td>
                       <td className="px-6 py-4 text-center font-medium text-gray-600">
-                        {new Date(data.timestamp).toLocaleString('en-US', {
+                        {data.timestamp ? new Date(data.timestamp).toLocaleString('en-US', {
                           month: 'long',
                           day: 'numeric',
                           year: 'numeric',
@@ -142,7 +156,7 @@ export default function Logs() {
                           minute: '2-digit',
                           second: '2-digit',
                           hour12: true,
-                        }).replace(',', ', ')}
+                        }).replace(',', ', ') : '—'}
                       </td>
                     </tr>
                   ))}
