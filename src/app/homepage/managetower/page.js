@@ -76,7 +76,7 @@ export default function ManageTower() {
             </p>
           </div>
 
-          <Link href="/createtower">
+          <Link href="/homepage/createtower">
             <button className="flex items-center gap-3 bg-green-600 text-white px-7 py-3 rounded-2xl font-medium shadow-lg hover:bg-green-700 hover:shadow-xl transition-all">
               <Plus className="w-5 h-5" />
               New Tower

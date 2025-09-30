@@ -71,7 +71,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
         {/* Navigation */}
         <nav className="flex-1 mt-4 space-y-1 text-lg font-medium">
           <Link
-            href="/dashboard"
+            href="/homepage/dashboard"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
@@ -80,7 +80,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </Link>
 
           <Link
-            href="/managetower"
+            href="/homepage/managetower"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
@@ -89,7 +89,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </Link>
 
           <Link
-            href="/logs"
+            href="/homepage/logs"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
@@ -98,7 +98,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </Link>
 
           <Link
-            href="/account"
+            href="/homepage/account"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
@@ -107,7 +107,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </Link>
 
           <Link
-            href="/about"
+            href="/homepage/about"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
