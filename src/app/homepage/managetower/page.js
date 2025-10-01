@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, X } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Link from "next/link";
 
@@ -9,33 +9,32 @@ export default function ManageTower() {
   const [towers, setTowers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingTower, setEditingTower] = useState(null);
-
-  // fetch towers on mount
+  const [saving, setSaving] = useState(false);
+  
+  // Fetch towers from backend API
   useEffect(() => {
-    const fetchTowers = async () => {
-      try {
-        const towersFromApi = await fetch(`/apis/getAllUserTowers`);
-        const towersResponse = await towersFromApi.json();
-
-        const mappedTowers = towersResponse.data.data.map((tower) => ({
-          id: tower.id,
-          name: tower.name || `Tower ${tower.id}`,
-          image: "/images/tower.png",
-        }));
-
-        setTowers(mappedTowers);
-      } catch (error) {
-        console.error("Error fetching towers:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTowers();
   }, []);
 
-  // delete tower
+  const fetchTowers = async () => {
+    try {
+      setLoading(true);
+      const towersFromApi = await fetch(`/apis/getAllUserTowers`);
+      const towersResponse = await towersFromApi.json();
+
+      if (towersResponse.success && towersResponse.data && towersResponse.data.data) {
+        setTowers(towersResponse.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching towers:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteTower = async (id) => {
+    if (!confirm("Are you sure you want to delete this tower?")) return;
+
     try {
       const response = await fetch(`/apis/deleteTower/${id}`, {
         method: "DELETE",
@@ -45,23 +44,89 @@ export default function ManageTower() {
         throw new Error(err.message || "Failed to delete tower");
       }
       setTowers((prev) => prev.filter((tower) => tower.id !== id));
+      alert("Tower deleted successfully!");
     } catch (error) {
       console.error("Error deleting tower:", error);
       alert("Failed to delete tower. Please try again.");
     }
   };
 
-  // edit handlers
-  const handleEditTower = (tower) => setEditingTower(tower);
-  const handleCloseEdit = () => setEditingTower(null);
-  const handleEditChange = (field, value) =>
-    setEditingTower((prev) => ({ ...prev, [field]: value }));
+  const handleEditTower = (tower) => {
+    // Prepare tower data for editing
+    setEditingTower({
+      ...tower,
+      wateringTimes: tower.schedules?.map(s => s.time?.substring(0, 5) || "") || [],
+    });
+  };
 
-  const handleSaveEdit = () => {
-    setTowers((prev) =>
-      prev.map((t) => (t.id === editingTower.id ? editingTower : t))
-    );
+  const handleCloseEdit = () => {
     setEditingTower(null);
+  };
+
+  const handleEditChange = (field, value) => {
+    setEditingTower((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (isEndDateInvalid()) {
+      alert("End date must be later than the start date.");
+      return;
+    }
+
+    // Validate watering times
+    if (!editingTower.wateringTimes || editingTower.wateringTimes.some(t => !t)) {
+      alert("Please fill in all watering times.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      // Prepare payload matching backend TowerRO structure
+      const payload = {
+        id: editingTower.id,
+        user: { id: editingTower.user.id },
+        plant: { id: editingTower.plant.id },
+        name: editingTower.name,
+        time: editingTower.wateringTimes[0] + ":00", // First time as main time
+        water_level: editingTower.waterLevel,
+        frequency: editingTower.frequency,
+        start_date: editingTower.startDate,
+        end_date: editingTower.endDate,
+        status: editingTower.status, // Send as boolean
+        schedules: editingTower.wateringTimes.map((time, index) => ({
+          id: editingTower.schedules?.[index]?.id || null,
+          start_time: time + ":00",
+          duration: editingTower.schedules?.[index]?.duration || 15,
+          active: editingTower.status,
+        })),
+      };
+
+      const response = await fetch(`/apis/updateTower/${editingTower.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to update tower");
+      }
+
+      alert("Tower updated successfully!");
+      setEditingTower(null);
+      fetchTowers(); // Refresh the list
+    } catch (error) {
+      console.error("Error updating tower:", error);
+      alert("Failed to update tower. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const isEndDateInvalid = () => {
@@ -69,18 +134,14 @@ export default function ManageTower() {
     return new Date(editingTower.endDate) <= new Date(editingTower.startDate);
   };
 
-  // derive number of times
+  // Helper to derive number of times
   const getTimesCount = (freq) => {
-    if (freq === "Once a day") return 1;
-    if (freq === "Twice a day") return 2;
-    if (freq === "Thrice a day") return 3;
-    if (freq === "Four times a day") return 4;
-    const match = freq?.match(/^(\d+)\s*times\/day$/);
-    return match ? parseInt(match[1]) : 1;
+    return freq || 1;
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-green-50 pl-6">
+    <div className="flex min-h-screen  bg-green-50 pl-32">
+      {/* Sidebar */}
       <Sidebar />
 
       <main className="flex-1 px-12 py-16 max-w-7xl mx-auto w-full ml-20 md:ml-64">
@@ -95,7 +156,7 @@ export default function ManageTower() {
             </p>
           </div>
 
-          <Link href="/createtower">
+          <Link href="/homepage/createtower">
             <button className="flex items-center gap-3 bg-green-600 text-white px-7 py-3 rounded-2xl font-medium shadow-lg hover:bg-green-700 hover:shadow-xl transition-all">
               <Plus className="w-5 h-5" />
               New Tower
@@ -125,8 +186,24 @@ export default function ManageTower() {
                 </div>
 
                 {/* Tower Name */}
-                <p className="text-lg font-semibold text-gray-800">{tower.name}</p>
-                <p className="text-sm text-gray-500 mb-4">Healthy • Online</p>
+                <p className="text-lg font-semibold text-gray-800 mb-3">{tower.name}</p>
+                
+                {/* Plant Name and Status - Side by Side */}
+                <div className="flex items-center justify-between w-full mb-4 px-2">
+                  {tower.plant && (
+                    <p className="text-sm text-gray-600 font-medium">{tower.plant.name}</p>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-2 h-2 rounded-full ${
+                      tower.status ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                    <p className={`text-xs font-medium ${
+                      tower.status ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {tower.status ? 'Active' : 'Inactive'}
+                    </p>
+                  </div>
+                </div>
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 w-full">
@@ -165,11 +242,19 @@ export default function ManageTower() {
 
       {/* Edit Tower Modal */}
       {editingTower && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/30">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-lg flex flex-col max-h-[80vh]">
-            {/* scrollable content */}
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20" onClick={handleCloseEdit}>
+          <div className="bg-white rounded-xl w-full max-w-md shadow-xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            {/* Close Button */}
+            <button
+              onClick={handleCloseEdit}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Scrollable Content */}
             <div className="overflow-y-auto p-8">
-              <h2 className="text-2xl font-bold mb-6">Edit Tower</h2>
+              <h2 className="text-2xl font-bold mb-6 text-gray-800">Edit Tower</h2>
 
               {/* Tower Name */}
               <label className="block mb-4">
@@ -178,43 +263,45 @@ export default function ManageTower() {
                   type="text"
                   value={editingTower.name}
                   onChange={(e) => handleEditChange("name", e.target.value)}
-                  className="mt-1 block w-full rounded border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-green-400"
                 />
               </label>
-
+              
               {/* Active Status */}
               <div className="mb-4">
-                <span className="text-gray-700 font-medium block mb-1">Active Status</span>
+                <span className="text-gray-700 font-medium block mb-2">Active Status</span>
                 <label className="inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     className="sr-only"
-                    checked={editingTower.active}
-                    onChange={(e) => handleEditChange("active", e.target.checked)}
+                    checked={editingTower.status}
+                    onChange={(e) => handleEditChange("status", e.target.checked)}
                   />
                   <div
-                    className={`relative w-11 h-6 rounded-full transition-colors
-                      ${editingTower.active ? "bg-green-500" : "bg-gray-300"}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      editingTower.status ? "bg-green-500" : "bg-gray-300"
+                    }`}
                   >
                     <span
-                      className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform
-                        ${editingTower.active ? "translate-x-5" : ""}`}
+                      className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                        editingTower.status ? "translate-x-5" : ""
+                      }`}
                     />
                   </div>
                   <span className="ml-3 text-gray-700">
-                    {editingTower.active ? "Active" : "Inactive"}
+                    {editingTower.status ? "Active" : "Inactive"}
                   </span>
                 </label>
               </div>
 
-              {/* Start Date */}
+              {/* Start Date (read-only) */}
               <label className="block mb-4">
                 <span className="text-gray-700 font-medium">Start Date</span>
                 <input
                   type="date"
                   value={editingTower.startDate}
                   readOnly
-                  className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 bg-gray-100 cursor-not-allowed"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 bg-gray-100 cursor-not-allowed"
                 />
               </label>
 
@@ -225,7 +312,7 @@ export default function ManageTower() {
                   type="date"
                   value={editingTower.endDate}
                   onChange={(e) => handleEditChange("endDate", e.target.value)}
-                  className={`mt-1 block w-full rounded px-3 py-2 ${
+                  className={`mt-1 block w-full rounded-lg border px-4 py-2 focus:ring-2 focus:ring-green-400 ${
                     isEndDateInvalid() ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -239,60 +326,34 @@ export default function ManageTower() {
               {/* Frequency */}
               <label className="block mb-4">
                 <span className="text-gray-700 font-medium">Watering Frequency</span>
-                <select
-                  value={
-                    editingTower.wateringFrequency?.match(/^\d+\s*times\/day$/)
-                      ? "Custom"
-                      : editingTower.wateringFrequency
-                  }
+                <input
+                  type="number"
+                  min="1"
+                  value={editingTower.frequency}
                   onChange={(e) => {
-                    if (e.target.value === "Custom") {
-                      handleEditChange("wateringFrequency", "1 times/day");
-                      handleEditChange("wateringTimes", Array(1).fill(""));
+                    const freq = Number(e.target.value) || 1;
+                    handleEditChange("frequency", freq);
+                    // Adjust watering times array
+                    const currentTimes = editingTower.wateringTimes || [];
+                    if (freq > currentTimes.length) {
+                      handleEditChange("wateringTimes", [...currentTimes, ...Array(freq - currentTimes.length).fill("")]);
                     } else {
-                      handleEditChange("wateringFrequency", e.target.value);
-                      handleEditChange(
-                        "wateringTimes",
-                        Array(getTimesCount(e.target.value)).fill("")
-                      );
+                      handleEditChange("wateringTimes", currentTimes.slice(0, freq));
                     }
                   }}
-                  className="mt-1 block w-full rounded border border-gray-300 px-3 py-2"
-                >
-                  <option>Once a day</option>
-                  <option>Twice a day</option>
-                  <option>Thrice a day</option>
-                  <option>Four times a day</option>
-                  <option value="Custom">Custom</option>
-                </select>
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-green-400"
+                />
+                <p className="text-sm text-gray-500 mt-1">{editingTower.frequency} times per day</p>
               </label>
-
-              {/* Custom Input */}
-              {editingTower.wateringFrequency?.match(/^\d+\s*times\/day$/) && (
-                <label className="block mb-4">
-                  <span className="text-gray-700 font-medium">Number of times per day</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={getTimesCount(editingTower.wateringFrequency)}
-                    onChange={(e) => {
-                      const times = Number(e.target.value) || 1;
-                      handleEditChange("wateringFrequency", `${times} times/day`);
-                      handleEditChange("wateringTimes", Array(times).fill(""));
-                    }}
-                    className="mt-1 block w-full rounded border border-gray-300 px-3 py-2"
-                  />
-                </label>
-              )}
 
               {/* Watering Times */}
               <label className="block mb-4">
                 <span className="text-gray-700 font-medium">Watering Times</span>
-                <div className="space-y-2">
-                  {Array.from({ length: getTimesCount(editingTower.wateringFrequency) }).map(
-                    (_, index) => (
+                <div className="space-y-2 mt-2">
+                  {Array.from({ length: editingTower.frequency }).map((_, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600 w-16">Time {index + 1}</span>
                       <input
-                        key={index}
                         type="time"
                         value={editingTower.wateringTimes?.[index] || ""}
                         onChange={(e) => {
@@ -300,30 +361,33 @@ export default function ManageTower() {
                           updatedTimes[index] = e.target.value;
                           handleEditChange("wateringTimes", updatedTimes);
                         }}
-                        className="mt-1 block w-full rounded border border-gray-300 px-3 py-2"
+                        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-green-400"
                       />
-                    )
-                  )}
+                    </div>
+                  ))}
                 </div>
               </label>
             </div>
 
-            {/* buttons */}
-            <div className="flex gap-4 justify-end p-4 border-t border-gray-200 bg-white">
+            {/* Fixed Footer Buttons */}
+            <div className="flex gap-4 justify-end p-6 border-t border-gray-200 bg-white rounded-b-xl">
               <button
                 onClick={handleCloseEdit}
                 className="px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+                disabled={saving}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
-                disabled={isEndDateInvalid()}
-                className={`px-6 py-2 rounded-lg text-white transition
-                  ${isEndDateInvalid() ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}
-                `}
+                disabled={isEndDateInvalid() || saving}
+                className={`px-6 py-2 rounded-lg text-white transition ${
+                  isEndDateInvalid() || saving
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
               >
-                Save
+                {saving ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

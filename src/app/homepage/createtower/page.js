@@ -10,9 +10,10 @@ export default function CreateTower() {
 
   const [plants, setPlants] = useState([]);
   const [plantsLoading, setPlantsLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const [towerName, setTowerName] = useState('');
-  const [selectedPlant, setSelectedPlant] = useState('');
+  const [selectedPlant, setSelectedPlant] = useState(''); 
   const [customPlantData, setCustomPlantData] = useState(null);
 
   // Watering states
@@ -48,36 +49,60 @@ export default function CreateTower() {
   const firstDayOfMonth = new Date(year, month, 1).getDay();
 
   useEffect(() => {
-    const fetchPlants = async () => {
+    const fetchInitialData = async () => {
       try {
+        // Fetch current user
+        const userResponse = await fetch('/apis/getCurrentUser');
+        const userResult = await userResponse.json();
+        if (userResult.success && userResult.data) {
+          setCurrentUserId(userResult.data.userId);
+        }
+
+        // Fetch plants
         setPlantsLoading(true);
         const response = await fetch('/apis/getAllPlants');
         const result = await response.json();
         
-        if (result.success && result.data && result.data.data) {
-          // Transform backend data to match frontend format
-          const transformedPlants = result.data.data.map(plant => ({
-            id: plant.id,
-            name: plant.name,
-            ph: `${plant.min_ph_level} - ${plant.max_ph_level}`,
-            ppm: `${plant.min_ppm} - ${plant.max_ppm} ppm`
-          }));
-          setPlants(transformedPlants);
+        // Check if we have the success flag from the API wrapper or status from backend
+        if ((result.success || result.status) && result.data) {
+          // Handle both nested (result.data.data) and direct (result.data) array structures
+          const plantsArray = Array.isArray(result.data) ? result.data : result.data.data;
+          
+          if (Array.isArray(plantsArray) && plantsArray.length > 0) {
+            // Transform backend data to match frontend format
+            const transformedPlants = plantsArray.map(plant => {
+              // Check if plant has user info and if user is NOT user 1 (system user)
+              const isCustomPlant = plant.user && plant.user.id !== 1;
+              console.log('Processing plant:', plant.name, 'user:', plant.user, 'isCustom:', isCustomPlant);
+              return {
+                id: plant.id,
+                name: plant.name,
+                ph: `${plant.min_ph_level} - ${plant.max_ph_level}`,
+                ppm: `${plant.min_ppm} - ${plant.max_ppm} ppm`,
+                isCustom: isCustomPlant, // Mark as custom if created by user other than user 1
+                userId: plant.user?.id
+              };
+            });
+
+            console.log('Transformed plants:', transformedPlants);
+            setPlants(transformedPlants);
+          } else {
+            console.warn('No plants found in response');
+            setPlants([]);
+          }
         } else {
           console.error('Failed to fetch plants:', result.message);
-          // Fallback to empty array if API fails
           setPlants([]);
         }
       } catch (error) {
-        console.error('Error fetching plants:', error);
-        // Fallback to empty array if API fails
+        console.error('Error fetching initial data:', error);
         setPlants([]);
       } finally {
         setPlantsLoading(false);
       }
     };
 
-    fetchPlants();
+    fetchInitialData();
   }, []);
 
   const makeDate = (day) => new Date(year, month, day);
@@ -123,26 +148,59 @@ export default function CreateTower() {
   };
 
   // Save custom plant
-  const handleCustomSave = () => {
+  const handleCustomSave = async () => {
     if (!customName || !customPhMin || !customPhMax || !customPpmMin || !customPpmMax) {
       alert('Please fill all custom plant fields');
       return;
     }
-    const customPlant = {
-      id: null,
-      name: customName,
-      ph: `${customPhMin} - ${customPhMax}`,
-      ppm: `${customPpmMin} - ${customPpmMax} ppm`,
-    };
-    setCustomPlantData(customPlant);
-    setSelectedPlant('custom');
-    setShowCustomModal(false);
 
-    setCustomName('');
-    setCustomPhMin('');
-    setCustomPhMax('');
-    setCustomPpmMin('');
-    setCustomPpmMax('');
+    try {
+      // Save custom plant to backend
+      const response = await fetch('/apis/addPlant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: customName,
+          min_ph_level: parseFloat(customPhMin),
+          max_ph_level: parseFloat(customPhMax),
+          min_ppm: parseInt(customPpmMin),
+          max_ppm: parseInt(customPpmMax),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        alert(result.message || 'Failed to create custom plant');
+        return;
+      }
+
+      // Create custom plant object with backend ID
+      const customPlant = {
+        id: result.data?.data?.id || Date.now(), // Use backend ID or fallback
+        name: customName,
+        ph: `${customPhMin} - ${customPhMax}`,
+        ppm: `${customPpmMin} - ${customPpmMax} ppm`,
+      };
+
+      setCustomPlantData(customPlant);
+      setSelectedPlant('custom');
+      setShowCustomModal(false);
+
+      // Clear form
+      setCustomName('');
+      setCustomPhMin('');
+      setCustomPhMax('');
+      setCustomPpmMin('');
+      setCustomPpmMax('');
+
+      alert('Custom plant created successfully!');
+    } catch (error) {
+      console.error('Error creating custom plant:', error);
+      alert('Failed to create custom plant. Please try again.');
+    }
   };
 
   // Utility: generate times with 6hr interval starting at 08:00
@@ -205,35 +263,58 @@ const handleCustomFrequencySave = () => {
     const plant =
       selectedPlant === 'custom' ? customPlantData : plants.find((p) => p.name === selectedPlant);
 
-    if (!towerName || !plant || !wateringTime || !wateringFrequency || !startDate || !endDate) {
+    if (!towerName || !plant || wateringTimes.length === 0 || wateringTimes.some(t => !t) || !wateringFrequency || !startDate || !endDate) {
       alert('Please complete all fields before submitting');
       return;
     }
 
+    if (!currentUserId) {
+      alert('User session not found. Please log in again.');
+      return;
+    }
+
+    // Prepare payload matching backend TowerRO structure
     const payload = {
-      towerName,
-      user: { id: 1 },
-      plant: { id: plant.id, name: plant.name },
-      times: wateringTimes.map(t => t + ':00'),
-      water_level: 123,
+      name: towerName,
+      user: { id: currentUserId }, // Use current logged-in user ID
+      plant: { id: plant.id },
+      time: wateringTimes[0], // First watering time (HH:mm format, no seconds)
+      water_level: 'MEDIUM', // Use enum value: HIGH, MEDIUM, or LOW
       frequency: parseInt(wateringFrequency),
       start_date: formatDateLocal(startDate),
       end_date: formatDateLocal(endDate),
+      status: true, // New towers are active by default
+      schedules: wateringTimes.map((time) => ({
+        id: 0, // New schedule, no ID yet
+        start_time: time // HH:mm format
+      }))
     };
+
+    console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
     try {
       const res = await fetch('/apis/addTower', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`Error: ${res.status}`);
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error('Backend error response:', errorData);
+        throw new Error(errorData.message || `Error: ${res.status}`);
+      }
+      
       const data = await res.json();
-      console.log('Tower created:', data);
+      console.log('Tower created successfully:', data);
       alert('Tower successfully created!');
-      router.push('/managetower');
+      router.push('/homepage/managetower');
     } catch (err) {
       console.error('Failed to create tower:', err);
-      alert('Error creating tower');
+      const errorMsg = err.message || 'Unknown error occurred';
+      alert(`Error creating tower: ${errorMsg}\n\nPlease check the console for more details.`);
     }
   };
 
@@ -288,9 +369,11 @@ const handleCustomFrequencySave = () => {
               >
                   <option value="">Choose your plant variety</option>
                   {plants.map((plant) => (
-                    <option key={plant.id} value={plant.name}>{plant.name}</option>
+                    <option key={plant.id} value={plant.name}>
+                      {plant.name}{plant.isCustom ? ' (My Custom Plant)' : ''}
+                    </option>
                   ))}
-                  <option value="custom">+ Custom Plant</option>
+                  <option value="custom">+ Create New Custom Plant</option>
                 </select>
 
               {selectedPlant && selectedPlant !== 'custom' && (
