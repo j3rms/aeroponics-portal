@@ -23,6 +23,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/addplants/page.tsx", "src/app/login/page.js", "src/app/signup/page.js", "src/components/sidebar.js", "src/components/ui/card.js", "src/components/ui/featurecard.js", "src/components/ui/herobutton.js", "src/app/homepage/dashboard/pasrc/app/homepage/managetower/page.jsr/page.js", "src/app/homepage/creatsrc/app/homepage/logs/page.jsc/app/logs/page.js", "src/app/homepage/account/page.js", "src/app/landing/page.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/addplants/page.tsx", "src/app/login/page.js", "src/app/signup/page.js", "src/components/sidebar.js", "src/components/ui/card.js", "src/components/ui/featurecard.js", "src/components/ui/herobutton.js", "src/app/homepage/dashboard/pasrc/app/homepage/managetower/page.jsr/page.js", "src/app/homepage/creatsrc/app/homepage/logs/page.jsc/app/logs/page.js", "src/app/homepage/account/page.js", "src/app/landing/page.js", "src/app/homepage/about/page.js"],
   "exclude": ["node_modules"]
 }
