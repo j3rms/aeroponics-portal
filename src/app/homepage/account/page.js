@@ -7,14 +7,17 @@ import Sidebar from '@/components/sidebar';
 
 export default function MyAccount() {
   const [user, setUser] = useState({
-    fullName: 'OG Diaz',
-    email: 'ogdiaz@official.com',
-    username: 'OG. Diaz',
+    fullName: '',
+    email: '',
+    username: '',
     status: 'Active',
-    memberSince: 'March 2024',
+    memberSince: '',
     avatarUrl: null,
+    firstName: '',
+    lastName: '',
   });
 
+  const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [passwords, setPasswords] = useState({
     current: '',
@@ -24,7 +27,43 @@ export default function MyAccount() {
 
   const [errors, setErrors] = useState({
     newPasswordMatch: '',
+    profile: '',
+    password: '',
   });
+
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Fetch current user data
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/apis/getCurrentUser');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const fullName = `${result.data.firstName} ${result.data.lastName}`;
+          setUser({
+            fullName: fullName,
+            email: result.data.email,
+            username: fullName,
+            status: 'Active',
+            memberSince: 'Member',
+            avatarUrl: null,
+            firstName: result.data.firstName,
+            lastName: result.data.lastName,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        setErrors({ ...errors, profile: 'Failed to load user data' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   // Reset password error hint when new / confirm change
   useEffect(() => {
@@ -35,17 +74,93 @@ export default function MyAccount() {
     }
   }, [passwords.new, passwords.confirm]);
 
-  const handleProfileUpdate = (e) => {
+  const handleProfileUpdate = async (e) => {
     e.preventDefault();
-    alert('Profile updated!');
-    setEditMode(false);
+    setErrors({ ...errors, profile: '' });
+    setSuccessMessage('');
+
+    try {
+      // Split fullName into first and last name
+      const nameParts = user.fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const response = await fetch('/apis/updateProfile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
+          email: user.email,
+          password: 'unchanged', // Keep existing password
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setErrors({ ...errors, profile: data.message || 'Failed to update profile' });
+        return;
+      }
+
+      setSuccessMessage('Profile updated successfully!');
+      setEditMode(false);
+      
+      // Update local state
+      setUser({
+        ...user,
+        firstName: firstName,
+        lastName: lastName,
+      });
+    } catch (error) {
+      console.error('Profile update error:', error);
+      setErrors({ ...errors, profile: 'Failed to update profile' });
+    }
   };
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
-    if (passwords.new !== passwords.confirm) return;
-    alert('Password changed!');
-    setPasswords({ current: '', new: '', confirm: '' });
+    setErrors({ ...errors, password: '' });
+    setSuccessMessage('');
+
+    if (passwords.new !== passwords.confirm) {
+      setErrors({ ...errors, password: 'Passwords do not match' });
+      return;
+    }
+
+    // Validate password strength
+    if (passwords.new.length < 8) {
+      setErrors({ ...errors, password: 'Password must be at least 8 characters' });
+      return;
+    }
+
+    try {
+      const response = await fetch('/apis/changePassword', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword: passwords.current,
+          newPassword: passwords.new,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setErrors({ ...errors, password: data.message || 'Failed to change password' });
+        return;
+      }
+
+      setSuccessMessage('Password changed successfully!');
+      setPasswords({ current: '', new: '', confirm: '' });
+    } catch (error) {
+      console.error('Password change error:', error);
+      setErrors({ ...errors, password: 'Failed to change password' });
+    }
   };
 
   const handleAvatarUpload = (e) => {
@@ -77,6 +192,20 @@ export default function MyAccount() {
             Manage your account settings and preferences
           </p>
         </motion.div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-4 p-4 rounded-lg bg-green-100 text-green-700 border border-green-300">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg">Loading account information...</p>
+          </div>
+        ) : (
 
         <div className="grid grid-cols-12 gap-8">
           {/* USER DETAILS CARD */}
@@ -123,13 +252,6 @@ export default function MyAccount() {
                 </div>
               </div>
 
-              {/* Edit Button */}
-              <button
-                onClick={() => setEditMode(!editMode)}
-                className="mt-6 px-6 py-2 rounded-full border border-green-600 text-green-600 hover:bg-green-50 transition"
-              >
-                {editMode ? 'Cancel' : 'Edit Profile'}
-              </button>
             </div>
           </div>
 
@@ -139,30 +261,31 @@ export default function MyAccount() {
             <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
               <h2 className="text-2xl font-semibold text-gray-800">Profile Information</h2>
               <p className="text-gray-500 mt-2 mb-6">
-                Update your personal info. Some fields may be disabled.
+                View your account information.
               </p>
+
+              {errors.profile && (
+                <div className="mb-4 p-3 rounded bg-red-100 text-red-700 text-sm">
+                  {errors.profile}
+                </div>
+              )}
 
               <form onSubmit={handleProfileUpdate} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-gray-700 mb-2">Full Name</label>
+                    <label className="block text-gray-700 mb-2">First Name</label>
                     <input
                       type="text"
-                      value={user.fullName}
-                      onChange={(e) => setUser({ ...user, fullName: e.target.value })}
-                      disabled={!editMode}
-                      className={`w-full rounded-lg border ${
-                        editMode
-                          ? 'border-gray-300 focus:ring-2 focus:ring-green-500'
-                          : 'bg-gray-100 border-gray-200 cursor-not-allowed'
-                      } p-3`}
+                      value={user.firstName}
+                      disabled
+                      className="w-full rounded-lg bg-gray-100 border border-gray-200 p-3 cursor-not-allowed"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2">Username</label>
+                    <label className="block text-gray-700 mb-2">Last Name</label>
                     <input
                       type="text"
-                      value={user.username}
+                      value={user.lastName}
                       disabled
                       className="w-full rounded-lg bg-gray-100 border border-gray-200 p-3 cursor-not-allowed"
                     />
@@ -180,17 +303,6 @@ export default function MyAccount() {
                     />
                   </div>
                 </div>
-
-                {editMode && (
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition"
-                    >
-                      Save Changes
-                    </button>
-                  </div>
-                )}
               </form>
             </div>
 
@@ -201,14 +313,19 @@ export default function MyAccount() {
                 Change Password
               </h2>
               <p className="text-gray-500 mt-2 mb-6">
-                For security, use a strong password. Don’t reuse old passwords.
+                For security, use a strong password. Don't reuse old passwords.
               </p>
+
+              {errors.password && (
+                <div className="mb-4 p-3 rounded bg-red-100 text-red-700 text-sm">
+                  {errors.password}
+                </div>
+              )}
 
               <form onSubmit={handlePasswordChange} className="space-y-6">
                 <div>
                   <label className="block text-gray-700 mb-2">Current Password</label>
                   <input
-                    type="password"
                     value={passwords.current}
                     onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                     className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 p-3"
@@ -264,6 +381,7 @@ export default function MyAccount() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

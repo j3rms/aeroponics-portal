@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -14,17 +14,60 @@ import {
   X,
 } from "lucide-react";
 
-export default function Sidebar({ username = "OG Diaz" }) {
+export default function Sidebar() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [userName, setUserName] = useState("User");
+  const [loading, setLoading] = useState(true);
 
-  const handleLogout = () => {
-    // 👉 Clear session/token if needed
-    localStorage.clear();
-    sessionStorage.clear();
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('/apis/getCurrentUser');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const fullName = `${result.data.firstName} ${result.data.lastName}`;
+          setUserName(fullName);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // 👉 Redirect to login page
-    router.push("/login");
+    fetchCurrentUser();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      // Call logout API to clear session cookie
+      const response = await fetch('/apis/logout', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        // Clear local storage and session storage
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // Redirect to login page
+        router.push("/login");
+      } else {
+        console.error('Logout failed');
+        // Still redirect even if API fails
+        localStorage.clear();
+        sessionStorage.clear();
+        router.push("/login");
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still redirect even if error occurs
+      localStorage.clear();
+      sessionStorage.clear();
+      router.push("/login");
+    }
   };
 
   return (
@@ -64,14 +107,18 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </div>
           <div>
             <p className="text-sm text-gray-200">Welcome,</p>
-            <p className="font-semibold">{username}</p>
+            {loading ? (
+              <div className="h-5 w-24 bg-green-600 animate-pulse rounded"></div>
+            ) : (
+              <p className="font-semibold">{userName}</p>
+            )}
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 mt-4 space-y-1 text-lg font-medium">
           <Link
-            href="/dashboard"
+            href="/homepage/dashboard"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
@@ -80,7 +127,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </Link>
 
           <Link
-            href="/managetower"
+            href="/homepage/managetower"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
@@ -89,7 +136,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </Link>
 
           <Link
-            href="/logs"
+            href="/homepage/logs"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
@@ -98,7 +145,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </Link>
 
           <Link
-            href="/account"
+            href="/homepage/account"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
@@ -107,7 +154,7 @@ export default function Sidebar({ username = "OG Diaz" }) {
           </Link>
 
           <Link
-            href="/about"
+            href="/homepage/about"
             onClick={() => setIsOpen(false)}
             className="flex items-center px-4 py-3 hover:bg-green-600 transition"
           >
