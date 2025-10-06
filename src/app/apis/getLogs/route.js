@@ -134,6 +134,7 @@ export async function GET(request) {
         return {
           id: log.id ?? idx + 1,
           towerName: log?.tower?.name || "Unknown",
+          plantName: log?.tower?.plant?.name || "Unknown",
           phLevel: parseFloat(log?.ph_level ?? 0),
           ppmLevel: parseFloat(log?.ppm ?? 0),
           waterLevel: waterLevelMap[log?.water_level] ?? 0,
