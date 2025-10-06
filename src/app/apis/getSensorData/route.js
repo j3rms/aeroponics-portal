@@ -69,32 +69,57 @@ export async function GET(request) {
     let sensorData = null;
     
     if (data.status && data.data && data.data.length > 0) {
-      // If towerId is provided, filter by tower, otherwise get the latest entry
-      let filteredData = data.data;
+      // Convert water level enum to percentage
+      const waterLevelMap = {
+        'HIGH': 100,
+        'MEDIUM': 50,
+        'LOW': 25
+      };
       
       if (towerId) {
-        filteredData = data.data.filter(log => log.tower?.id === parseInt(towerId));
-      }
-      
-      // Get the most recent entry
-      if (filteredData.length > 0) {
-        const latestLog = filteredData[filteredData.length - 1];
+        // Specific tower - get latest entry for that tower
+        const filteredData = data.data.filter(log => log.tower?.id === parseInt(towerId));
         
-        // Convert water level enum to percentage
-        const waterLevelMap = {
-          'HIGH': 100,
-          'MEDIUM': 50,
-          'LOW': 25
-        };
+        if (filteredData.length > 0) {
+          const latestLog = filteredData[filteredData.length - 1];
+          
+          sensorData = {
+            phValue: parseFloat(latestLog.ph_level),
+            ppmValue: parseFloat(latestLog.ppm),
+            waterLevel: waterLevelMap[latestLog.water_level] || 0,
+            timestamp: latestLog.time,
+            towerId: latestLog.tower?.id,
+            towerName: latestLog.tower?.name
+          };
+        }
+      } else {
+        // All towers - calculate averages from latest entry per tower
+        const towerMap = new Map();
         
-        sensorData = {
-          phValue: parseFloat(latestLog.ph_level),
-          ppmValue: parseFloat(latestLog.ppm),
-          waterLevel: waterLevelMap[latestLog.water_level] || 0,
-          timestamp: latestLog.time,
-          towerId: latestLog.tower?.id,
-          towerName: latestLog.tower?.name
-        };
+        // Get the latest entry for each tower
+        data.data.forEach(log => {
+          if (log.tower?.id) {
+            towerMap.set(log.tower.id, log);
+          }
+        });
+        
+        // Calculate averages from latest entries
+        const latestEntries = Array.from(towerMap.values());
+        
+        if (latestEntries.length > 0) {
+          const avgPh = latestEntries.reduce((sum, log) => sum + parseFloat(log.ph_level), 0) / latestEntries.length;
+          const avgPpm = latestEntries.reduce((sum, log) => sum + parseFloat(log.ppm), 0) / latestEntries.length;
+          const avgWaterLevel = latestEntries.reduce((sum, log) => sum + (waterLevelMap[log.water_level] || 0), 0) / latestEntries.length;
+          
+          sensorData = {
+            phValue: avgPh,
+            ppmValue: avgPpm,
+            waterLevel: avgWaterLevel,
+            timestamp: latestEntries[latestEntries.length - 1].time,
+            towerId: null,
+            towerName: `Average of ${latestEntries.length} towers`
+          };
+        }
       }
     }
 

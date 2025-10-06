@@ -148,15 +148,24 @@ export default function Logs() {
                         {Number.isFinite(data.waterLevel) ? `${data.waterLevel}%` : '—'}
                       </td>
                       <td className="px-6 py-4 text-center font-medium text-gray-600">
-                        {data.timestamp ? new Date(data.timestamp).toLocaleString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        }).replace(',', ', ') : '—'}
+                        {data.time ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-sm font-semibold text-gray-800">
+                              {new Date(`2000-01-01T${data.time}`).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(data.timestamp).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        ) : '—'}
                       </td>
                     </tr>
                   ))}
