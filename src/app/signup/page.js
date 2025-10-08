@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Mail, Lock, User, UserPlus, CheckCircle, XCircle } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, UserPlus, CheckCircle, XCircle, Shield, ArrowRight } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "react-hot-toast";
 
@@ -20,6 +20,12 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  
+  // OTP flow states
+  const [step, setStep] = useState(1); // 1 = form, 2 = OTP verification
+  const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""]);
+  const [otpSent, setOtpSent] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
 
   // Eye toggle states
   const [showPassword, setShowPassword] = useState(false);
@@ -50,7 +56,48 @@ export default function Signup() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  // Handle OTP input change
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) return; // Only allow single digit
+    
+    const newOtpCode = [...otpCode];
+    newOtpCode[index] = value;
+    setOtpCode(newOtpCode);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
+
+  // Handle OTP backspace
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
+  // Check if OTP is complete
+  const isOtpComplete = otpCode.every(digit => digit !== "");
+
+  // Start resend timer
+  const startResendTimer = () => {
+    setResendTimer(60);
+    const interval = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Send OTP
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setError("");
     setFieldErrors({});
@@ -87,54 +134,124 @@ export default function Signup() {
       return;
     }
 
-    toast.loading("Creating your account...");
+    toast.loading("Sending OTP to your email...");
 
     try {
-      const response = await fetch("/apis/signup", {
+      const response = await fetch("/apis/sendOtp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ email: formData.email }),
       });
 
       const data = await response.json();
       toast.dismiss();
 
       if (!response.ok) {
-        // Handle validation errors from backend
-        if (data.data && typeof data.data === "object") {
-          const backendErrors = {};
-          Object.keys(data.data).forEach((field) => {
-            backendErrors[field] = data.data[field];
-          });
-          setFieldErrors(backendErrors);
-          setError(data.message || "Please fix the errors below");
-        } else if (data.message) {
-          // Check for duplicate email error
-          if (data.message.toLowerCase().includes("email") || 
-              data.message.toLowerCase().includes("duplicate") ||
-              data.message.toLowerCase().includes("already exists")) {
-            setFieldErrors({ email: "This email is already registered" });
-            setError("An account with this email already exists");
-          } else if (data.message.includes("Passwords do not match")) {
-            setFieldErrors({ confirmPassword: "Passwords do not match" });
-            setError(data.message);
-          } else {
-            setError(data.message);
-          }
-        } else {
-          setError("Failed to create account. Please try again.");
-        }
+        const errorMsg = data.message || "Failed to send OTP. Please try again.";
+        setError(errorMsg);
+        toast.error(errorMsg);
+        setLoading(false);
+        return;
+      }
+
+      // Success - move to OTP step
+      toast.success("OTP sent to your email!");
+      setOtpSent(true);
+      setStep(2);
+      startResendTimer();
+      setLoading(false);
+    } catch (err) {
+      console.error("Send OTP error:", err);
+      toast.dismiss();
+      const errorMsg = "Network error. Please check your connection and try again.";
+      setError(errorMsg);
+      toast.error(errorMsg);
+      setLoading(false);
+    }
+  };
+
+  // Resend OTP
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    
+    setError("");
+    toast.loading("Resending OTP...");
+
+    try {
+      const response = await fetch("/apis/sendOtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email }),
+      });
+
+      const data = await response.json();
+      toast.dismiss();
+
+      if (!response.ok) {
+        const errorMsg = data.message || "Failed to resend OTP. Please try again.";
+        setError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+
+      toast.success("OTP resent to your email!");
+      setOtpCode(["", "", "", "", "", ""]);
+      startResendTimer();
+    } catch (err) {
+      console.error("Resend OTP error:", err);
+      toast.dismiss();
+      const errorMsg = "Network error. Please try again.";
+      setError(errorMsg);
+      toast.error(errorMsg);
+    }
+  };
+
+  // Verify OTP and create account
+  const handleVerifyAndRegister = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    if (!isOtpComplete) {
+      setError("Please enter the complete OTP code");
+      setLoading(false);
+      return;
+    }
+
+    toast.loading("Verifying OTP and creating your account...");
+
+    try {
+      const response = await fetch("/apis/verifyOtpRegister", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: formData.first_name,
+          lastName: formData.last_name,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          otpCode: otpCode.join("")
+        }),
+      });
+
+      const data = await response.json();
+      toast.dismiss();
+
+      if (!response.ok) {
+        const errorMsg = data.message || "Failed to verify OTP or create account. Please try again.";
+        setError(errorMsg);
+        toast.error(errorMsg);
         setLoading(false);
         return;
       }
 
       // Success - redirect to login
-      toast.success("Account created successfully! Please login.");
+      toast.success("Account created successfully! Redirecting to login...");
       setTimeout(() => {
         router.push("/login");
-      }, 1000);
+      }, 2000);
     } catch (err) {
-      console.error("Signup error:", err);
+      console.error("Verify OTP error:", err);
       toast.dismiss();
       const errorMsg = "Network error. Please check your connection and try again.";
       setError(errorMsg);
@@ -173,10 +290,12 @@ export default function Signup() {
 
           <div className="text-center mb-6">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent mb-2">
-              Create Account
+              {step === 1 ? "Create Account" : "Verify Email"}
             </h2>
             <p className="text-gray-600 text-base">
-              Join us to manage your aeroponics system
+              {step === 1 
+                ? "Join us to manage your aeroponics system" 
+                : `Enter the OTP sent to ${formData.email}`}
             </p>
           </div>
 
@@ -197,7 +316,8 @@ export default function Signup() {
             </motion.div>
           )}
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          {step === 1 ? (
+            <form className="space-y-4" onSubmit={handleSendOtp}>
             {/* First + Last Name */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -418,16 +538,95 @@ export default function Signup() {
               {loading ? (
                 <>
                   <LoadingSpinner size="sm" color="white" />
-                  Creating Account...
+                  Sending OTP...
                 </>
               ) : (
                 <>
-                  <UserPlus className="w-5 h-5" />
-                  Create Account
+                  <ArrowRight className="w-5 h-5" />
+                  Continue to Verification
                 </>
               )}
             </motion.button>
           </form>
+          ) : (
+            <form className="space-y-6" onSubmit={handleVerifyAndRegister}>
+              {/* OTP Input */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                  <Shield className="w-4 h-4 text-green-600" />
+                  OTP Code
+                </label>
+                <div className="flex justify-center gap-2 mb-2">
+                  {otpCode.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`otp-${index}`}
+                      type="text"
+                      maxLength="1"
+                      value={digit}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      className="w-12 h-12 text-center text-lg font-bold border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      pattern="[0-9]"
+                      inputMode="numeric"
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 text-center">Enter the 6-digit code sent to your email</p>
+              </div>
+
+              {/* Resend OTP */}
+              <div className="text-center">
+                {resendTimer > 0 ? (
+                  <p className="text-sm text-gray-600">
+                    Resend OTP in <span className="font-bold text-green-600">{resendTimer}s</span>
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    className="text-sm font-semibold text-green-700 hover:text-green-800 transition-colors"
+                  >
+                    Resend OTP
+                  </button>
+                )}
+              </div>
+
+              {/* Submit OTP */}
+              <motion.button
+                whileHover={{ scale: loading ? 1 : 1.02 }}
+                whileTap={{ scale: loading ? 1 : 0.98 }}
+                type="submit"
+                disabled={loading || !isOtpComplete}
+                className="w-full py-4 px-4 text-lg font-bold rounded-2xl text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <LoadingSpinner size="sm" color="white" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-5 h-5" />
+                    Create Account
+                  </>
+                )}
+              </motion.button>
+
+              {/* Back button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(1);
+                  setOtpCode(["", "", "", "", "", ""]);
+                  setError("");
+                }}
+                className="w-full text-sm font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                ← Back to form
+              </button>
+            </form>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">

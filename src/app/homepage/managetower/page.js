@@ -248,7 +248,7 @@ export default function ManageTower() {
                     Manage Towers
                   </h1>
                   <p className="text-gray-600 text-lg mt-1">
-                    View, edit, and manage your hydroponic towers
+                    View, edit, and manage your aeroponics towers
                   </p>
                 </div>
               </div>
