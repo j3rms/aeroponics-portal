@@ -33,8 +33,6 @@ export default function ManageTower() {
   };
 
   const handleDeleteTower = async (id) => {
-    if (!confirm("Are you sure you want to delete this tower?")) return;
-
     try {
       const response = await fetch(`/apis/deleteTower/${id}`, {
         method: "DELETE",
@@ -44,10 +42,30 @@ export default function ManageTower() {
         throw new Error(err.message || "Failed to delete tower");
       }
       setTowers((prev) => prev.filter((tower) => tower.id !== id));
-      alert("Tower deleted successfully!");
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+      notification.textContent = 'Tower deleted successfully!';
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.classList.add('animate-fade-out');
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
     } catch (error) {
       console.error("Error deleting tower:", error);
-      alert("Failed to delete tower. Please try again.");
+      
+      // Show error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+      notification.textContent = 'Failed to delete tower. Please try again.';
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.classList.add('animate-fade-out');
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
     }
   };
 
