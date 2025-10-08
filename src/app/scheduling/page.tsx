@@ -8,10 +8,17 @@ export default function Scheduling() {
   const [time, setTime] = useState<string>('');
   
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
     console.log({ frequency, time });
-    setShowSuccessModal(true); // Show the success modal after submission
+    setIsLoading(false);
+    setShowSuccessModal(true);
   };
 
   return (
@@ -58,16 +65,35 @@ export default function Scheduling() {
           {/* Submit Button */}
           <button
             onClick={handleSubmit}
-            disabled={frequency === '' || frequency === 0 || time === ''} // Disable if frequency is empty, 0, or time is empty
+            disabled={frequency === '' || frequency === 0 || time === '' || isLoading}
             className={`w-full py-3 rounded-lg font-medium transition-all ${
-              frequency === '' || frequency === 0 || time === ''
+              frequency === '' || frequency === 0 || time === '' || isLoading
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            Save Schedule
+            {isLoading ? 'Saving...' : 'Save Schedule'}
           </button>
         </div>
+
+        {/* Loading Screen */}
+        {isLoading && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-8 rounded-2xl shadow-2xl text-center">
+              <div className="flex flex-col items-center space-y-4">
+                {/* Animated Spinner */}
+                <div className="relative w-16 h-16">
+                  <div className="absolute inset-0 border-4 border-green-200 rounded-full"></div>
+                  <div className="absolute inset-0 border-4 border-green-600 rounded-full border-t-transparent animate-spin"></div>
+                </div>
+                <div>
+                  <p className="text-lg font-medium text-gray-800">Saving Schedule</p>
+                  <p className="text-sm text-gray-500 mt-1">Please wait...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Success Modal */}
         {showSuccessModal && (

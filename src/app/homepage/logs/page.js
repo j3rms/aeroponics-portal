@@ -69,9 +69,11 @@ export default function Logs() {
     fetchLogs();
   }, []);
 
-  const sortedData = [...logs].sort((a, b) =>
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  const sortedData = [...logs].sort((a, b) => {
+    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return timeB - timeA; // Latest to oldest (descending)
+  });
 
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const currentData = sortedData.slice(
@@ -80,20 +82,20 @@ export default function Logs() {
   );
 
   return (
-    <div className="flex min-h-screen bg-green-50 pl-64">
+    <div className="flex min-h-screen bg-green-50 pl-0 md:pl-64">
       <Sidebar />
       <div className="flex flex-col flex-1">
-        <main className="flex-1 max-w-8xl mx-auto w-full px-10 py-14">
+        <main className="flex-1 max-w-8xl mx-auto w-full px-4 md:px-10 py-8 md:py-14">
           {/* Title */}
           <motion.h1
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-4xl font-bold text-gray-800 mb-4"
+            className="text-2xl md:text-4xl font-bold text-gray-800 mb-4"
           >
             Tower Data Logs
           </motion.h1>
-          <p className="text-gray-600 text-lg mb-10">
+          <p className="text-gray-600 text-sm md:text-lg mb-6 md:mb-10">
             View historical sensor data from your towers
           </p>
 
@@ -105,15 +107,15 @@ export default function Logs() {
             className="bg-white rounded-2xl border border-gray-200 shadow-xl hover:shadow-2xl transition-shadow duration-300 overflow-hidden w-full"
           >
             <div className="overflow-x-auto">
-              <table className="w-full text-lg">
-                <thead className="bg-green-700 text-white text-lg">
+              <table className="w-full text-sm md:text-lg min-w-full">
+                <thead className="bg-green-700 text-white text-sm md:text-lg">
                   <tr>
-                    <th className="px-5 py-4 text-center font-bold">ID</th>
-                    <th className="px-6 py-4 text-center font-bold">TOWER</th>
-                    <th className="px-6 py-4 text-center font-bold">PH</th>
-                    <th className="px-6 py-4 text-center font-bold">PPM</th>
-                    <th className="px-6 py-4 text-center font-bold">WATER</th>
-                    <th className="px-6 py-4 text-center font-bold">TIMESTAMP</th>
+                    <th className="px-2 md:px-5 py-2 md:py-4 text-center font-bold">ID</th>
+                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">TOWER</th>
+                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">PH</th>
+                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">PPM</th>
+                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">WATER</th>
+                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">TIMESTAMP</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -132,31 +134,40 @@ export default function Logs() {
                         index % 2 === 0 ? 'bg-green-50/50' : 'bg-white'
                       }`}
                     >
-                      <td className="px-5 py-4 text-center font-medium text-gray-600">
+                      <td className="px-2 md:px-5 py-2 md:py-4 text-center font-medium text-gray-600">
                         {data.id}
                       </td>
-                      <td className="px-6 py-4 text-center font-semibold text-gray-800">
-                        {data.towerName}
+                      <td className="px-3 md:px-6 py-2 md:py-4 text-center font-semibold text-gray-800">
+                        <span className="block md:inline truncate max-w-[80px] md:max-w-none">{data.towerName}</span>
                       </td>
-                      <td className={`px-6 py-4 text-center font-semibold ${getStatusColor('ph', data.phLevel, data.towerName)}`}>
+                      <td className={`px-3 md:px-6 py-2 md:py-4 text-center font-semibold ${getStatusColor('ph', data.phLevel, data.towerName)}`}>
                         {Number.isFinite(data.phLevel) ? data.phLevel.toFixed(1) : '—'}
                       </td>
-                      <td className={`px-6 py-4 text-center font-semibold ${getStatusColor('ppm', data.ppmLevel, data.towerName)}`}>
+                      <td className={`px-3 md:px-6 py-2 md:py-4 text-center font-semibold ${getStatusColor('ppm', data.ppmLevel, data.towerName)}`}>
                         {Number.isFinite(data.ppmLevel) ? data.ppmLevel.toLocaleString() : '—'}
                       </td>
-                      <td className={`px-6 py-4 text-center font-semibold ${getStatusColor('water', data.waterLevel, data.towerName)}`}>
+                      <td className={`px-3 md:px-6 py-2 md:py-4 text-center font-semibold ${getStatusColor('water', data.waterLevel, data.towerName)}`}>
                         {Number.isFinite(data.waterLevel) ? `${data.waterLevel}%` : '—'}
                       </td>
-                      <td className="px-6 py-4 text-center font-medium text-gray-600">
-                        {data.timestamp ? new Date(data.timestamp).toLocaleString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        }).replace(',', ', ') : '—'}
+                      <td className="px-3 md:px-6 py-2 md:py-4 text-center font-medium text-gray-600">
+                        {data.time ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs md:text-sm font-semibold text-gray-800">
+                              {new Date(`2000-01-01T${data.time}`).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(data.timestamp).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: window.innerWidth > 768 ? 'numeric' : '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        ) : '—'}
                       </td>
                     </tr>
                   ))}
@@ -165,21 +176,23 @@ export default function Logs() {
             </div>
 
             {/* Pagination */}
-            <div className="flex justify-between items-center px-10 py-5 bg-gray-50 border-t border-gray-100">
+            <div className="flex justify-between items-center px-4 md:px-10 py-4 md:py-5 bg-gray-50 border-t border-gray-100">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-6 py-2 text-base font-medium text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                className="px-3 md:px-6 py-2 text-sm md:text-base font-medium text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
               >
-                Previous
+                <span className="hidden md:inline">Previous</span>
+                <span className="md:hidden">Prev</span>
               </button>
-              <span className="text-base text-gray-600">
-                Page {currentPage} of {totalPages}
+              <span className="text-sm md:text-base text-gray-600">
+                <span className="hidden md:inline">Page {currentPage} of {totalPages}</span>
+                <span className="md:hidden">{currentPage}/{totalPages}</span>
               </span>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="px-6 py-2 text-base font-medium text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                className="px-3 md:px-6 py-2 text-sm md:text-base font-medium text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
               >
                 Next
               </button>

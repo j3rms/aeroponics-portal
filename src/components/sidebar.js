@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
@@ -16,9 +16,13 @@ import {
 
 export default function Sidebar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [userName, setUserName] = useState("User");
   const [loading, setLoading] = useState(true);
+
+  // Helper function to check if link is active
+  const isActive = (path) => pathname === path;
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -120,7 +124,11 @@ export default function Sidebar() {
           <Link
             href="/homepage/dashboard"
             onClick={() => setIsOpen(false)}
-            className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+            className={`flex items-center px-4 py-3 transition relative ${
+              isActive('/homepage/dashboard')
+                ? 'bg-green-600 border-l-4 border-white'
+                : 'hover:bg-green-600'
+            }`}
           >
             <LayoutDashboard className="h-6 w-6" />
             <span className="ml-3">Dashboard</span>
@@ -129,7 +137,11 @@ export default function Sidebar() {
           <Link
             href="/homepage/managetower"
             onClick={() => setIsOpen(false)}
-            className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+            className={`flex items-center px-4 py-3 transition relative ${
+              isActive('/homepage/managetower')
+                ? 'bg-green-600 border-l-4 border-white'
+                : 'hover:bg-green-600'
+            }`}
           >
             <Building2 className="h-6 w-6" />
             <span className="ml-3">Towers</span>
@@ -138,7 +150,11 @@ export default function Sidebar() {
           <Link
             href="/homepage/logs"
             onClick={() => setIsOpen(false)}
-            className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+            className={`flex items-center px-4 py-3 transition relative ${
+              isActive('/homepage/logs')
+                ? 'bg-green-600 border-l-4 border-white'
+                : 'hover:bg-green-600'
+            }`}
           >
             <FileText className="h-6 w-6" />
             <span className="ml-3">Logs</span>
@@ -147,7 +163,11 @@ export default function Sidebar() {
           <Link
             href="/homepage/account"
             onClick={() => setIsOpen(false)}
-            className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+            className={`flex items-center px-4 py-3 transition relative ${
+              isActive('/homepage/account')
+                ? 'bg-green-600 border-l-4 border-white'
+                : 'hover:bg-green-600'
+            }`}
           >
             <User className="h-6 w-6" />
             <span className="ml-3">My Account</span>
@@ -156,7 +176,11 @@ export default function Sidebar() {
           <Link
             href="/homepage/about"
             onClick={() => setIsOpen(false)}
-            className="flex items-center px-4 py-3 hover:bg-green-600 transition"
+            className={`flex items-center px-4 py-3 transition relative ${
+              isActive('/homepage/about')
+                ? 'bg-green-600 border-l-4 border-white'
+                : 'hover:bg-green-600'
+            }`}
           >
             <Info className="h-6 w-6" />
             <span className="ml-3">About</span>

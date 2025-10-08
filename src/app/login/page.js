@@ -13,10 +13,12 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [isDisabled, setIsDisabled] = useState(false);
   const [showPassword, setShowPassword] = useState(false); // state to toggle password
+  const [errorMessage, setErrorMessage] = useState(""); // state for error messages
 
   const handleSubmit = async (e) => {
       e.preventDefault();
-      toast.loading("Signing you up...");
+      setErrorMessage(""); // Clear any previous error messages
+      toast.loading("Signing in...");
       setIsDisabled(true);
   
       const formData = new FormData(e.target);
@@ -35,33 +37,28 @@ export default function Login() {
         });
   
         const result = await response.json();
-  
-        if (response.ok) {
-          document.cookie = `user=${JSON.stringify(result.user)}; path=/; max-age=3600`
-          toast.success("Signed in successfully!");
-        }
-  
         toast.remove();
-        if (result.success) {
+  
+        if (response.ok && result.success) {
+          document.cookie = `user=${JSON.stringify(result.user)}; path=/; max-age=3600`;
           toast.success("Signed in successfully!");
           router.push("/homepage/dashboard");
         } else {
-          toast.success(
-           result.message === "Unauthorized"
-              ? "Incorrect email address or password. Please try again."
-              : result.message
-          );
+          // Handle login failure
+          const errorMsg = result.message === "Unauthorized" || !response.ok
+            ? "Login failed! Invalid email or password. Please try again."
+            : result.message || "Login failed! Please try again.";
+          
+          setErrorMessage(errorMsg);
           setIsDisabled(false);
-          toast.error(
-            result.message === "Unauthorized"
-              ? "Incorrect email address or password. Please try again."
-              : result.message
-          );
+          toast.error(errorMsg);
         }
       } catch (error) {
         setIsDisabled(false);
         console.error("Error:", error);
-        toast.error("An error occurred while signing in.");
+        const errorMsg = "Login failed! Please check your connection and try again.";
+        setErrorMessage(errorMsg);
+        toast.error(errorMsg);
       }
     };
 
@@ -89,6 +86,13 @@ export default function Login() {
           <p className="mt-2 text-center text-gray-600 text-sm">
             Enter your credentials to access your account.
           </p>
+
+          {/* Error Message Display */}
+          {errorMessage && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600 text-center">{errorMessage}</p>
+            </div>
+          )}
 
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <div>

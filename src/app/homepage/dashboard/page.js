@@ -46,16 +46,18 @@ export default function Dashboard() {
   const [towers, setTowers] = useState([]);
   const [towersLoading, setTowersLoading] = useState(true);
   const [towersError, setTowersError] = useState(null);
-  const [harvestPredictions, setHarvestPredictions] = useState([]);
-  const [predictionsLoading, setPredictionsLoading] = useState(true);
   const [selectedTower, setSelectedTower] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [nutrientDepletion, setNutrientDepletion] = useState(null);
+  const [depletionLoading, setDepletionLoading] = useState(false);
+  const [selectedTowerFilter, setSelectedTowerFilter] = useState('all');
 
-  // Fetch sensor data from backend
-  const fetchSensorData = async () => {
+  // Fetch sensor data from backend (optionally filtered by tower)
+  const fetchSensorData = async (towerId = null) => {
     try {
       setLoading(true);
-      const response = await fetch('/apis/getSensorData');
+      const url = towerId ? `/apis/getSensorData?towerId=${towerId}` : '/apis/getSensorData';
+      const response = await fetch(url);
       const result = await response.json();
 
       if (result.success && result.data) {
@@ -75,10 +77,11 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch historical data for charts
-  const fetchHistoricalData = async () => {
+  // Fetch historical data for charts (optionally filtered by tower)
+  const fetchHistoricalData = async (towerId = null) => {
     try {
-      const response = await fetch('/apis/getSensorHistory?limit=5');
+      const url = towerId ? `/apis/getSensorHistory?limit=5&towerId=${towerId}` : '/apis/getSensorHistory?limit=5';
+      const response = await fetch(url);
       const result = await response.json();
 
       if (result.success && result.data) {
@@ -116,21 +119,30 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch harvest predictions from backend
-  const fetchHarvestPredictions = async () => {
+  // Fetch nutrient depletion for a specific tower
+  const fetchNutrientDepletion = async (towerId) => {
     try {
-      setPredictionsLoading(true);
-      const response = await fetch('/apis/getHarvestPredictions');
+      setDepletionLoading(true);
+      const response = await fetch(`/apis/getNutrientDepletion?towerId=${towerId}`);
       const result = await response.json();
 
       if (result.success && result.data && result.data.data) {
-        setHarvestPredictions(result.data.data);
+        setNutrientDepletion(result.data.data);
       }
     } catch (err) {
-      console.error('Error fetching harvest predictions:', err);
+      console.error('Error fetching nutrient depletion:', err);
+      setNutrientDepletion(null);
     } finally {
-      setPredictionsLoading(false);
+      setDepletionLoading(false);
     }
+  };
+
+  // Handle tower filter change
+  const handleTowerFilterChange = (towerId) => {
+    setSelectedTowerFilter(towerId);
+    const towerIdParam = towerId === 'all' ? null : towerId;
+    fetchSensorData(towerIdParam);
+    fetchHistoricalData(towerIdParam);
   };
 
   // Initial data fetch
@@ -138,7 +150,6 @@ export default function Dashboard() {
     fetchSensorData();
     fetchHistoricalData();
     fetchTowers();
-    fetchHarvestPredictions();
   }, []);
 
   // Animate tank fill-up when data changes
@@ -152,25 +163,31 @@ export default function Dashboard() {
   // Auto-refresh data every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchSensorData();
-      fetchHistoricalData();
+      const towerIdParam = selectedTowerFilter === 'all' ? null : selectedTowerFilter;
+      fetchSensorData(towerIdParam);
+      fetchHistoricalData(towerIdParam);
       fetchTowers();
-      fetchHarvestPredictions();
+      if (selectedTower) {
+        fetchNutrientDepletion(selectedTower.id);
+      }
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedTower, selectedTowerFilter]);
 
   // Handle tower click
   const handleTowerClick = (tower) => {
     setSelectedTower(tower);
     setShowModal(true);
+    setNutrientDepletion(null);
+    fetchNutrientDepletion(tower.id);
   };
 
   // Close modal
   const closeModal = () => {
     setShowModal(false);
     setSelectedTower(null);
+    setNutrientDepletion(null);
   };
 
   // Format date helper
@@ -194,18 +211,39 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex flex-col flex-1">
         <main className="flex-1 max-w-7xl mx-auto w-full px-10 py-12">
-          {/* Title */}
-          <motion.h1
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
-          >
-            Dashboard
-          </motion.h1>
-          <p className="text-gray-600 text-base md:text-lg mb-12">
-            Monitor your aeroponics system performance and plant tower activity
-          </p>
+          {/* Title and Tower Filter */}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <motion.h1
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="text-3xl md:text-4xl font-bold text-gray-800"
+              >
+                Dashboard
+              </motion.h1>
+              <p className="text-gray-600 text-base md:text-lg mt-2">
+                Monitor your aeroponics system performance and plant tower activity
+              </p>
+            </div>
+            
+            {/* Tower Filter Dropdown */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700">View Data For:</label>
+              <select
+                value={selectedTowerFilter}
+                onChange={(e) => handleTowerFilterChange(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm font-medium text-gray-700 min-w-[200px]"
+              >
+                <option value="all">All Towers</option>
+                {towers.map((tower) => (
+                  <option key={tower.id} value={tower.id}>
+                    {tower.name} - {tower.plant?.name || 'No Plant'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           {/* Error Message */}
           {error && (
@@ -214,10 +252,20 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Average Data Indicator */}
+          {selectedTowerFilter === 'all' && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="font-medium">Showing average data from all active towers</p>
+            </div>
+          )}
+
           {/* Top Stats */}
           <section className="flex flex-wrap gap-6 mb-12">
             <div className="flex-1 min-w-[200px] bg-white rounded-2xl border shadow-sm p-6 text-center">
-              <p className="text-gray-600">pH</p>
+              <p className="text-gray-600">{selectedTowerFilter === 'all' ? 'Avg pH' : 'pH'}</p>
               {loading ? (
                 <div className="h-8 bg-gray-200 animate-pulse rounded mt-2"></div>
               ) : (
@@ -227,7 +275,7 @@ export default function Dashboard() {
               )}
             </div>
             <div className="flex-1 min-w-[200px] bg-white rounded-2xl border shadow-sm p-6 text-center">
-              <p className="text-gray-600">PPM</p>
+              <p className="text-gray-600">{selectedTowerFilter === 'all' ? 'Avg PPM' : 'PPM'}</p>
               {loading ? (
                 <div className="h-8 bg-gray-200 animate-pulse rounded mt-2"></div>
               ) : (
@@ -237,12 +285,12 @@ export default function Dashboard() {
               )}
             </div>
             <div className="flex-1 min-w-[200px] bg-white rounded-2xl border shadow-sm p-6 text-center">
-              <p className="text-gray-600">Water Level</p>
+              <p className="text-gray-600">{selectedTowerFilter === 'all' ? 'Avg Water Level' : 'Water Level'}</p>
               {loading ? (
                 <div className="h-8 bg-gray-200 animate-pulse rounded mt-2"></div>
               ) : (
                 <h2 className="text-2xl font-bold text-cyan-600">
-                  {sensorData.targetWaterLevel}%
+                  {sensorData.targetWaterLevel.toFixed(0)}%
                 </h2>
               )}
             </div>
@@ -351,99 +399,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          </section>
-
-          {/* Harvest Predictions Section */}
-          <section className="mb-12">
-            <h2 className="text-lg md:text-xl font-semibold mb-6 text-gray-800">
-              Harvest Predictions
-            </h2>
-            
-            {predictionsLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div className="h-6 w-32 bg-gray-200 animate-pulse rounded mb-4"></div>
-                    <div className="h-4 w-full bg-gray-200 animate-pulse rounded mb-2"></div>
-                    <div className="h-4 w-3/4 bg-gray-200 animate-pulse rounded"></div>
-                  </div>
-                ))}
-              </div>
-            ) : harvestPredictions.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {harvestPredictions.map((prediction) => {
-                  const healthColors = {
-                    EXCELLENT: 'bg-green-100 text-green-800 border-green-300',
-                    GOOD: 'bg-blue-100 text-blue-800 border-blue-300',
-                    FAIR: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-                    POOR: 'bg-red-100 text-red-800 border-red-300',
-                    NO_DATA: 'bg-gray-100 text-gray-800 border-gray-300'
-                  };
-
-                  return (
-                    <motion.div
-                      key={prediction.towerId}
-                      whileHover={{ scale: 1.02 }}
-                      className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md p-6 transition"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="font-bold text-green-900 text-lg">{prediction.plantName}</h3>
-                          <p className="text-sm text-gray-600">{prediction.towerName}</p>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${healthColors[prediction.healthStatus] || healthColors.NO_DATA}`}>
-                          {prediction.healthStatus.replace('_', ' ')}
-                        </span>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Growth Progress</span>
-                          <span className="font-semibold text-green-700">{prediction.growthProgress}%</span>
-                        </div>
-
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-green-600 h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${prediction.growthProgress}%` }}
-                          ></div>
-                        </div>
-
-                        <div className="flex justify-between items-center pt-2">
-                          <span className="text-sm text-gray-600">Days Until Harvest</span>
-                          <span className="font-bold text-xl text-green-900">{prediction.daysUntilHarvest}</span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                          <div>
-                            <p className="text-xs text-gray-500">Avg pH</p>
-                            <p className="font-semibold text-green-700">{prediction.averagePh}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Avg PPM</p>
-                            <p className="font-semibold text-blue-700">{prediction.averagePpm}</p>
-                          </div>
-                        </div>
-
-                        {prediction.recommendation && (
-                          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <p className="text-xs text-blue-800">
-                              <span className="font-semibold">💡 Tip: </span>
-                              {prediction.recommendation}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="bg-gray-100 border border-gray-300 text-gray-600 px-6 py-8 rounded-lg text-center">
-                <p className="text-lg">No harvest predictions available</p>
-                <p className="text-sm mt-2">Add active towers to see predictions</p>
-              </div>
-            )}
           </section>
 
           {/* Active Tower Section */}
@@ -578,7 +533,7 @@ export default function Dashboard() {
               </div>
 
               {/* Watering Schedule */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6 mb-6">
                 <h3 className="font-semibold text-lg text-gray-800 mb-4">Watering Schedule</h3>
                 {selectedTower.schedules && selectedTower.schedules.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -607,6 +562,166 @@ export default function Dashboard() {
                 ) : (
                   <div className="text-center py-6 text-gray-500">
                     <p>No schedules configured for this tower</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Nutrient Depletion Analytics */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
+                <h3 className="font-semibold text-lg text-gray-800 mb-4">Nutrient Depletion Analysis</h3>
+                
+                {depletionLoading ? (
+                  <div className="space-y-4">
+                    <div className="h-6 bg-gray-200 animate-pulse rounded"></div>
+                    <div className="h-4 bg-gray-200 animate-pulse rounded w-3/4"></div>
+                    <div className="h-4 bg-gray-200 animate-pulse rounded w-1/2"></div>
+                  </div>
+                ) : nutrientDepletion ? (
+                  <div className="space-y-4">
+                    {/* Depletion Timeline - Most Prominent */}
+                    <div className={`p-6 rounded-xl border-2 ${
+                      nutrientDepletion.overallStatus === 'CRITICAL' ? 'bg-red-50 border-red-400' :
+                      nutrientDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-50 border-yellow-400' :
+                      'bg-green-50 border-green-400'
+                    }`}>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600 mb-2">Nutrients Will Be Depleted In</p>
+                        <div className="flex items-center justify-center gap-8">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">pH Critical In</p>
+                            <p className={`text-4xl font-bold ${
+                              nutrientDepletion.daysUntilPhCritical <= 3 ? 'text-red-600' :
+                              nutrientDepletion.daysUntilPhCritical <= 7 ? 'text-yellow-600' :
+                              'text-green-600'
+                            }`}>
+                              {nutrientDepletion.daysUntilPhCritical > 99 ? '99+' : nutrientDepletion.daysUntilPhCritical}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">days</p>
+                          </div>
+                          <div className="h-16 w-px bg-gray-300"></div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">PPM Critical In</p>
+                            <p className={`text-4xl font-bold ${
+                              nutrientDepletion.daysUntilPpmCritical <= 3 ? 'text-red-600' :
+                              nutrientDepletion.daysUntilPpmCritical <= 7 ? 'text-yellow-600' :
+                              'text-green-600'
+                            }`}>
+                              {nutrientDepletion.daysUntilPpmCritical > 99 ? '99+' : nutrientDepletion.daysUntilPpmCritical}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">days</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Overall Status */}
+                    <div className={`p-4 rounded-lg border ${
+                      nutrientDepletion.overallStatus === 'EXCELLENT' ? 'bg-green-50 border-green-300' :
+                      nutrientDepletion.overallStatus === 'GOOD' ? 'bg-blue-50 border-blue-300' :
+                      nutrientDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-50 border-yellow-300' :
+                      nutrientDepletion.overallStatus === 'CRITICAL' ? 'bg-red-50 border-red-300' :
+                      'bg-gray-50 border-gray-300'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-gray-800">Overall Status</span>
+                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                          nutrientDepletion.overallStatus === 'EXCELLENT' ? 'bg-green-100 text-green-800' :
+                          nutrientDepletion.overallStatus === 'GOOD' ? 'bg-blue-100 text-blue-800' :
+                          nutrientDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-100 text-yellow-800' :
+                          nutrientDepletion.overallStatus === 'CRITICAL' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {nutrientDepletion.overallStatus.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Current Levels */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Current pH</p>
+                        <p className="text-2xl font-bold text-green-700">{nutrientDepletion.currentPh}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Optimal: {nutrientDepletion.optimalPhMin} - {nutrientDepletion.optimalPhMax}
+                        </p>
+                        <span className={`inline-block mt-2 px-2 py-1 rounded text-xs font-semibold ${
+                          nutrientDepletion.phStatus === 'OPTIMAL' ? 'bg-green-100 text-green-800' :
+                          nutrientDepletion.phStatus === 'WARNING' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {nutrientDepletion.phStatus}
+                        </span>
+                      </div>
+
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Current PPM</p>
+                        <p className="text-2xl font-bold text-blue-700">{nutrientDepletion.currentPpm}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Optimal: {nutrientDepletion.optimalPpmMin} - {nutrientDepletion.optimalPpmMax}
+                        </p>
+                        <span className={`inline-block mt-2 px-2 py-1 rounded text-xs font-semibold ${
+                          nutrientDepletion.ppmStatus === 'OPTIMAL' ? 'bg-green-100 text-green-800' :
+                          nutrientDepletion.ppmStatus === 'WARNING' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {nutrientDepletion.ppmStatus}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Depletion Rates */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">pH Change Rate</p>
+                        <p className={`text-lg font-bold ${
+                          nutrientDepletion.phDepletionRate > 0 ? 'text-orange-600' : 
+                          nutrientDepletion.phDepletionRate < 0 ? 'text-blue-600' : 'text-gray-600'
+                        }`}>
+                          {nutrientDepletion.phDepletionRate > 0 ? '+' : ''}{nutrientDepletion.phDepletionRate}/day
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Critical in: {nutrientDepletion.daysUntilPhCritical > 99 ? '99+' : nutrientDepletion.daysUntilPhCritical} days
+                        </p>
+                      </div>
+
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">PPM Change Rate</p>
+                        <p className={`text-lg font-bold ${
+                          nutrientDepletion.ppmDepletionRate > 0 ? 'text-orange-600' : 
+                          nutrientDepletion.ppmDepletionRate < 0 ? 'text-blue-600' : 'text-gray-600'
+                        }`}>
+                          {nutrientDepletion.ppmDepletionRate > 0 ? '+' : ''}{nutrientDepletion.ppmDepletionRate}/day
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Critical in: {nutrientDepletion.daysUntilPpmCritical > 99 ? '99+' : nutrientDepletion.daysUntilPpmCritical} days
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Recommendation */}
+                    {nutrientDepletion.recommendation && (
+                      <div className={`p-4 rounded-lg border ${
+                        nutrientDepletion.needsImmediateAction 
+                          ? 'bg-red-50 border-red-300' 
+                          : 'bg-blue-50 border-blue-300'
+                      }`}>
+                        <p className={`text-sm font-semibold mb-2 ${
+                          nutrientDepletion.needsImmediateAction ? 'text-red-800' : 'text-blue-800'
+                        }`}>
+                          {nutrientDepletion.needsImmediateAction ? '⚠️ Action Required' : '💡 Recommendation'}
+                        </p>
+                        <p className={`text-sm ${
+                          nutrientDepletion.needsImmediateAction ? 'text-red-700' : 'text-blue-700'
+                        }`}>
+                          {nutrientDepletion.recommendation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No nutrient data available</p>
+                    <p className="text-sm mt-2">Sensor readings are required for analysis</p>
                   </div>
                 )}
               </div>

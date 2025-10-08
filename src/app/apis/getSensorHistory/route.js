@@ -71,16 +71,6 @@ export async function GET(request) {
     };
     
     if (data.status && data.data && data.data.length > 0) {
-      let filteredData = data.data;
-      
-      // Filter by tower if specified
-      if (towerId) {
-        filteredData = data.data.filter(log => log.tower?.id === parseInt(towerId));
-      }
-      
-      // Get the last N entries
-      const recentData = filteredData.slice(-limit);
-      
       // Convert water level enum to percentage
       const waterLevelMap = {
         'HIGH': 100,
@@ -88,20 +78,63 @@ export async function GET(request) {
         'LOW': 25
       };
       
-      // Process data for charts
-      historyData = {
-        labels: recentData.map(log => {
-          // Format time for display
+      if (towerId) {
+        // Specific tower - filter and get recent data
+        const filteredData = data.data.filter(log => log.tower?.id === parseInt(towerId));
+        const recentData = filteredData.slice(-limit);
+        
+        historyData = {
+          labels: recentData.map(log => {
+            if (log.time) {
+              const time = log.time.split(':');
+              return `${time[0]}:${time[1]}`;
+            }
+            return '';
+          }),
+          phData: recentData.map(log => parseFloat(log.ph_level)),
+          ppmData: recentData.map(log => parseFloat(log.ppm)),
+          waterLevelData: recentData.map(log => waterLevelMap[log.water_level] || 0)
+        };
+      } else {
+        // All towers - calculate averages for each time point
+        // Group logs by time
+        const timeGroups = new Map();
+        
+        data.data.forEach(log => {
           if (log.time) {
-            const time = log.time.split(':');
-            return `${time[0]}:${time[1]}`;
+            if (!timeGroups.has(log.time)) {
+              timeGroups.set(log.time, []);
+            }
+            timeGroups.get(log.time).push(log);
           }
-          return '';
-        }),
-        phData: recentData.map(log => parseFloat(log.ph_level)),
-        ppmData: recentData.map(log => parseFloat(log.ppm)),
-        waterLevelData: recentData.map(log => waterLevelMap[log.water_level] || 0)
-      };
+        });
+        
+        // Get the last N time points
+        const sortedTimes = Array.from(timeGroups.keys()).sort().slice(-limit);
+        
+        // Calculate averages for each time point
+        historyData = {
+          labels: sortedTimes.map(time => {
+            const timeParts = time.split(':');
+            return `${timeParts[0]}:${timeParts[1]}`;
+          }),
+          phData: sortedTimes.map(time => {
+            const logs = timeGroups.get(time);
+            const avgPh = logs.reduce((sum, log) => sum + parseFloat(log.ph_level), 0) / logs.length;
+            return avgPh;
+          }),
+          ppmData: sortedTimes.map(time => {
+            const logs = timeGroups.get(time);
+            const avgPpm = logs.reduce((sum, log) => sum + parseFloat(log.ppm), 0) / logs.length;
+            return avgPpm;
+          }),
+          waterLevelData: sortedTimes.map(time => {
+            const logs = timeGroups.get(time);
+            const avgWaterLevel = logs.reduce((sum, log) => sum + (waterLevelMap[log.water_level] || 0), 0) / logs.length;
+            return avgWaterLevel;
+          })
+        };
+      }
     }
 
     return NextResponse.json({ success: true, data: historyData });

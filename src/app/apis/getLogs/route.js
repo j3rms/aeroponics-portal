@@ -114,14 +114,34 @@ export async function GET(request) {
       // take last N
       const recent = logs.slice(-limit);
 
-      items = recent.map((log, idx) => ({
-        id: log.id ?? idx + 1,
-        towerName: log?.tower?.name || "Unknown",
-        phLevel: parseFloat(log?.ph_level ?? 0),
-        ppmLevel: parseFloat(log?.ppm ?? 0),
-        waterLevel: waterLevelMap[log?.water_level] ?? 0,
-        timestamp: log?.time || null,
-      }));
+      items = recent.map((log, idx) => {
+        // Create a proper timestamp from the time field
+        // Since we only have time, we'll use today's date
+        let timestamp = null;
+        if (log?.time) {
+          const today = new Date();
+          const [hours, minutes, seconds] = log.time.split(':');
+          timestamp = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate(),
+            parseInt(hours),
+            parseInt(minutes),
+            parseInt(seconds || 0)
+          ).toISOString();
+        }
+
+        return {
+          id: log.id ?? idx + 1,
+          towerName: log?.tower?.name || "Unknown",
+          plantName: log?.tower?.plant?.name || "Unknown",
+          phLevel: parseFloat(log?.ph_level ?? 0),
+          ppmLevel: parseFloat(log?.ppm ?? 0),
+          waterLevel: waterLevelMap[log?.water_level] ?? 0,
+          time: log?.time || null, // Keep original time
+          timestamp: timestamp, // Full timestamp for display
+        };
+      });
     }
 
     return NextResponse.json({ success: true, data: items });
