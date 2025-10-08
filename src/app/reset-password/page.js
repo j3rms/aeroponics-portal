@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
-import { Lock, Eye, EyeOff, Shield, ArrowLeft, CheckCircle, XCircle } from "lucide-react";
+import { Lock, Eye, EyeOff, Shield, ArrowLeft, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function ResetPassword() {
@@ -19,14 +19,39 @@ export default function ResetPassword() {
   const [successMessage, setSuccessMessage] = useState("");
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [confirmFocused, setConfirmFocused] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [canResend, setCanResend] = useState(true);
+  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     // Get email from localStorage if available
     const storedEmail = localStorage.getItem('resetPasswordEmail');
     if (storedEmail) {
       setEmail(storedEmail);
+      // Start 5-minute (300 seconds) countdown immediately when page loads
+      setResendTimer(300);
+      setCanResend(false);
     }
   }, []);
+
+  // Timer effect for resend countdown
+  useEffect(() => {
+    let interval = null;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer(timer => {
+          if (timer <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return timer - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendTimer]);
 
   const handleOtpChange = (index, value) => {
     if (value.length > 1) return; // Only allow single digit
@@ -64,6 +89,112 @@ export default function ResetPassword() {
       const prevInput = document.getElementById(`otp-${index - 1}`);
       if (prevInput) prevInput.focus();
     }
+  };
+
+  const handleResendOtp = async () => {
+    if (!canResend || !email) return;
+    
+    setIsResending(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+    
+    toast.loading("Resending OTP...", {
+      position: "top-center",
+      style: {
+        background: '#fff',
+        color: '#374151',
+        fontSize: '16px',
+        fontWeight: 'bold',
+        padding: '16px 24px',
+        borderRadius: '12px',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      },
+    });
+
+    try {
+      const response = await fetch("/apis/forgotPassword", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const result = await response.json();
+      toast.remove();
+
+      if (response.ok && result.success) {
+        setSuccessMessage("New OTP has been sent to your email!");
+        toast.success("OTP resent successfully!", {
+          duration: 3000,
+          position: "top-center",
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            padding: '16px 24px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          },
+          icon: '✓',
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#10b981',
+          },
+        });
+        
+        // Clear current OTP inputs
+        setOtpCode(["", "", "", "", "", ""]);
+        
+        // Start 5-minute (300 seconds) countdown
+        setResendTimer(300);
+        setCanResend(false);
+      } else {
+        const errorMsg = result.message || "Failed to resend OTP. Please try again.";
+        setErrorMessage(errorMsg);
+        toast.error(errorMsg, {
+          duration: 4000,
+          position: "top-center",
+          style: {
+            background: '#ef4444',
+            color: '#fff',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            padding: '16px 24px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          },
+        });
+      }
+    } catch (error) {
+      toast.remove();
+      console.error("Error:", error);
+      const errorMsg = "Network error. Please check your connection and try again.";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg, {
+        duration: 4000,
+        position: "top-center",
+        style: {
+          background: '#ef4444',
+          color: '#fff',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        },
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  // Format timer display (MM:SS)
+  const formatTimer = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   const handleSubmit = async (e) => {
@@ -268,7 +399,37 @@ export default function ResetPassword() {
                   />
                 ))}
               </div>
-              <p className="text-xs text-gray-500 text-center">Enter the 6-digit code sent to your email</p>
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-xs text-gray-500 text-center">Enter the 6-digit code sent to your email</p>
+                
+                {/* Resend OTP Section */}
+                <div className="flex items-center gap-2">
+                  {resendTimer > 0 ? (
+                    <p className="text-xs text-gray-600 font-medium">
+                      Resend OTP in {formatTimer(resendTimer)}
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={!canResend || isResending || !email}
+                      className="text-xs font-semibold text-green-700 hover:text-green-800 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      {isResending ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          Resending...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3 h-3" />
+                          Resend OTP
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* New Password Field */}

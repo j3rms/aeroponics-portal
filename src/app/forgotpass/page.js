@@ -203,12 +203,12 @@ export default function ForgotPassword() {
               {isDisabled ? (
                 <>
                   <LoadingSpinner size="sm" color="white" />
-                  Sending Reset Link...
+                  Please wait for a moment...
                 </>
               ) : (
                 <>
                   <Send className="w-5 h-5" />
-                  Send Reset Link
+                  Send OTP code
                 </>
               )}
             </motion.button>
