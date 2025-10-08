@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, KeyRound, Camera } from 'lucide-react';
+import { CheckCircle, KeyRound, Camera, User, UserCircle, Mail, Shield, Calendar } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
+import Footer from '@/components/footer';
 
 export default function MyAccount() {
   const [user, setUser] = useState({
@@ -16,6 +17,8 @@ export default function MyAccount() {
     firstName: '',
     lastName: '',
   });
+
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -163,225 +166,311 @@ export default function MyAccount() {
     }
   };
 
-  const handleAvatarUpload = (e) => {
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
-    if (file) {
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    
+    try {
+      // Read file as base64
       const reader = new FileReader();
       reader.onload = () => {
         setUser({ ...user, avatarUrl: reader.result });
+        setSuccessMessage('Profile photo updated successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+        setUploadingAvatar(false);
+      };
+      reader.onerror = () => {
+        alert('Failed to read image file');
+        setUploadingAvatar(false);
       };
       reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      alert('Failed to upload image');
+      setUploadingAvatar(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-green-50 pl-64">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       {/* Sidebar */}
       <Sidebar />
 
-      <div className="flex flex-col flex-1 px-10 py-8 overflow-y-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">My Account</h1>
-          <p className="text-gray-600 text-lg mt-2">
-            Manage your account settings and preferences
-          </p>
-        </motion.div>
-
-        {/* Success Message */}
-        {successMessage && (
-          <div className="mb-4 p-4 rounded-lg bg-green-100 text-green-700 border border-green-300">
-            {successMessage}
-          </div>
-        )}
-
-        {/* Loading State */}
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">Loading account information...</p>
-          </div>
-        ) : (
-
-        <div className="grid grid-cols-12 gap-8">
-          {/* USER DETAILS CARD */}
-          <div className="col-span-12 md:col-span-4">
-            <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8 flex flex-col items-center">
-              {/* Avatar & Upload */}
-              <div className="relative">
-                <img
-                  src={user.avatarUrl ?? '/default-avatar.png'}
-                  alt="Avatar"
-                  className="w-28 h-28 rounded-full object-cover"
-                />
-                <label className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow cursor-pointer">
-                  <Camera size={18} className="text-gray-600" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                  />
-                </label>
+      <div className="flex flex-col flex-1 ml-64">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-6 md:px-10 py-10 md:py-12">
+          {/* Header with decorative elements */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-12 relative overflow-visible"
+          >
+            {/* Decorative background */}
+            <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
+            <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
+            
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <UserCircle className="w-8 h-8 text-white" />
               </div>
-
-              {/* Name & Email */}
-              <h2 className="mt-4 text-xl font-semibold text-gray-800">{user.fullName}</h2>
-              <p className="text-gray-500 mt-1">{user.email}</p>
-
-              {/* Status & Info */}
-              <div className="mt-6 w-full space-y-4 text-sm text-gray-700">
-                <div className="flex justify-between">
-                  <span>Status</span>
-                  <span className="flex items-center text-green-600 font-medium">
-                    <CheckCircle size={16} className="mr-1" />
-                    {user.status}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Member since</span>
-                  <span className="font-medium">{user.memberSince}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Username</span>
-                  <span className="font-medium">@{user.username}</span>
-                </div>
+              <div>
+                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
+                  My Account
+                </h1>
+                <p className="text-gray-600 text-lg mt-1">
+                  Manage your account settings and preferences
+                </p>
               </div>
-
             </div>
-          </div>
+          </motion.div>
 
-          {/* RIGHT SIDE FORMS */}
-          <div className="col-span-12 md:col-span-8 space-y-8">
-            {/* PROFILE INFORMATION FORM */}
-            <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-              <h2 className="text-2xl font-semibold text-gray-800">Profile Information</h2>
-              <p className="text-gray-500 mt-2 mb-6">
-                View your account information.
-              </p>
+          {/* Success Message */}
+          {successMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-2 border-green-300 shadow-md flex items-center gap-3"
+            >
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-semibold">{successMessage}</span>
+            </motion.div>
+          )}
 
-              {errors.profile && (
-                <div className="mb-4 p-3 rounded bg-red-100 text-red-700 text-sm">
-                  {errors.profile}
-                </div>
-              )}
-
-              <form onSubmit={handleProfileUpdate} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-gray-700 mb-2">First Name</label>
-                    <input
-                      type="text"
-                      value={user.firstName}
-                      disabled
-                      className="w-full rounded-lg bg-gray-100 border border-gray-200 p-3 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 mb-2">Last Name</label>
-                    <input
-                      type="text"
-                      value={user.lastName}
-                      disabled
-                      className="w-full rounded-lg bg-gray-100 border border-gray-200 p-3 cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-6">
-                  <div>
-                    <label className="block text-gray-700 mb-2">Email Address</label>
-                    <input
-                      type="email"
-                      value={user.email}
-                      disabled
-                      className="w-full rounded-lg bg-gray-100 border border-gray-200 p-3 cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-              </form>
+          {/* Loading State */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600 text-lg font-medium">Loading account information...</p>
             </div>
+          ) : (
 
-            {/* CHANGE PASSWORD FORM */}
-            <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
-              <h2 className="text-2xl font-semibold text-gray-800 flex items-center">
-                <KeyRound size={24} className="mr-2 text-green-600" />
-                Change Password
-              </h2>
-              <p className="text-gray-500 mt-2 mb-6">
-                For security, use a strong password. Don't reuse old passwords.
-              </p>
-
-              {errors.password && (
-                <div className="mb-4 p-3 rounded bg-red-100 text-red-700 text-sm">
-                  {errors.password}
-                </div>
-              )}
-
-              <form onSubmit={handlePasswordChange} className="space-y-6">
-                <div>
-                  <label className="block text-gray-700 mb-2">Current Password</label>
-                  <input
-                    value={passwords.current}
-                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 p-3"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-gray-700 mb-2">New Password</label>
-                    <input
-                      type="password"
-                      value={passwords.new}
-                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 p-3"
-                      required
+          <div className="grid grid-cols-12 gap-6">
+            {/* USER DETAILS CARD */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="col-span-12 md:col-span-4"
+            >
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 flex flex-col items-center">
+                {/* Avatar & Upload */}
+                <div className="relative mb-6">
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt="Avatar"
+                      className="w-32 h-32 rounded-full object-cover border-4 border-green-200 shadow-lg"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 mb-2">Confirm New Password</label>
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center border-4 border-green-200 shadow-lg">
+                      <User className="w-20 h-20 text-white" />
+                    </div>
+                  )}
+                  <label className="absolute bottom-0 right-0 bg-gradient-to-br from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 p-3 rounded-full shadow-lg cursor-pointer transition-all hover:scale-110">
+                    <Camera size={20} className="text-white" />
                     <input
-                      type="password"
-                      value={passwords.confirm}
-                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 p-3"
-                      required
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                      disabled={uploadingAvatar}
                     />
-                  </div>
+                  </label>
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-10 w-10 border-4 border-white border-t-transparent"></div>
+                    </div>
+                  )}
                 </div>
 
-                {errors.newPasswordMatch && (
-                  <p className="text-red-500 text-sm">{errors.newPasswordMatch}</p>
+                {/* Name & Email */}
+                <h2 className="text-2xl font-bold text-gray-800 text-center">{user.fullName}</h2>
+                <p className="text-gray-600 mt-2 flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  {user.email}
+                </p>
+                <p className="text-xs text-gray-500 mt-3 text-center bg-green-50 px-4 py-2 rounded-full">
+                  Click camera icon to upload photo
+                </p>
+              </div>
+            </motion.div>
+
+            {/* RIGHT SIDE FORMS */}
+            <div className="col-span-12 md:col-span-8 space-y-6">
+              {/* PROFILE INFORMATION FORM */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8"
+              >
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                    <User className="w-6 h-6 text-white" />
+                  </div>
+                  Profile Information
+                </h2>
+                <p className="text-gray-600 mt-3 mb-6">
+                  View your account information.
+                </p>
+
+                {errors.profile && (
+                  <div className="mb-4 p-4 rounded-xl bg-red-100 text-red-700 border-2 border-red-300 font-medium">
+                    {errors.profile}
+                  </div>
                 )}
 
-                <div className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <p className="font-medium">Password requirements:</p>
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>At least 8 characters</li>
-                    <li>Include uppercase and lowercase letters</li>
-                    <li>Include at least one number</li>
-                  </ul>
-                </div>
+                <form onSubmit={handleProfileUpdate} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-3">First Name</label>
+                      <input
+                        type="text"
+                        value={user.firstName}
+                        disabled
+                        className="w-full rounded-xl bg-gray-100 border-2 border-gray-200 p-4 cursor-not-allowed font-medium text-gray-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-3">Last Name</label>
+                      <input
+                        type="text"
+                        value={user.lastName}
+                        disabled
+                        className="w-full rounded-xl bg-gray-100 border-2 border-gray-200 p-4 cursor-not-allowed font-medium text-gray-600"
+                      />
+                    </div>
+                  </div>
 
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition"
-                  >
-                    Update Password
-                  </button>
-                </div>
-              </form>
+                  <div className="grid grid-cols-1 gap-6">
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-3">Email Address</label>
+                      <input
+                        type="email"
+                        value={user.email}
+                        disabled
+                        className="w-full rounded-xl bg-gray-100 border-2 border-gray-200 p-4 cursor-not-allowed font-medium text-gray-600"
+                      />
+                    </div>
+                  </div>
+                </form>
+              </motion.div>
+
+              {/* CHANGE PASSWORD FORM */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8"
+              >
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                    <KeyRound className="w-6 h-6 text-white" />
+                  </div>
+                  Change Password
+                </h2>
+                <p className="text-gray-600 mt-3 mb-6">
+                  For security, use a strong password. Don't reuse old passwords.
+                </p>
+
+                {errors.password && (
+                  <div className="mb-4 p-4 rounded-xl bg-red-100 text-red-700 border-2 border-red-300 font-medium">
+                    {errors.password}
+                  </div>
+                )}
+
+                <form onSubmit={handlePasswordChange} className="space-y-6">
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-3">Current Password</label>
+                    <input
+                      type="password"
+                      value={passwords.current}
+                      onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                      className="w-full rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 p-4 transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-3">New Password</label>
+                      <input
+                        type="password"
+                        value={passwords.new}
+                        onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                        className="w-full rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 p-4 transition-all"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-3">Confirm New Password</label>
+                      <input
+                        type="password"
+                        value={passwords.confirm}
+                        onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                        className="w-full rounded-xl border-2 border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 p-4 transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {errors.newPasswordMatch && (
+                    <p className="text-red-600 font-medium">{errors.newPasswordMatch}</p>
+                  )}
+
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-5">
+                    <p className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-blue-600" />
+                      Password requirements:
+                    </p>
+                    <ul className="space-y-2 text-gray-700">
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                        At least 8 characters
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                        Include uppercase and lowercase letters
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                        Include at least one number
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <motion.button
+                      type="submit"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                    >
+                      <KeyRound className="w-5 h-5" />
+                      Update Password
+                    </motion.button>
+                  </div>
+                </form>
+              </motion.div>
             </div>
           </div>
-        </div>
-        )}
+          )}
+        </main>
+        <Footer />
       </div>
     </div>
   );

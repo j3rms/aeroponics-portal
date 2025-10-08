@@ -1,9 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
-import { Clock, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Clock, RefreshCw, ChevronLeft, ChevronRight, X, Plus, Leaf, ArrowLeft, Calendar } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import LoadingSpinner, { InlineLoader } from '@/components/LoadingSpinner';
+import { toast } from 'react-hot-toast';
 
 export default function CreateTower() {
   const router = useRouter();
@@ -11,9 +14,10 @@ export default function CreateTower() {
   const [plants, setPlants] = useState([]);
   const [plantsLoading, setPlantsLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [towerName, setTowerName] = useState('');
-  const [selectedPlant, setSelectedPlant] = useState(''); 
+  const [selectedPlant, setSelectedPlant] = useState('');
   const [customPlantData, setCustomPlantData] = useState(null);
 
   // Watering states
@@ -54,8 +58,10 @@ export default function CreateTower() {
         // Fetch current user
         const userResponse = await fetch('/apis/getCurrentUser');
         const userResult = await userResponse.json();
+        let userId = null;
         if (userResult.success && userResult.data) {
-          setCurrentUserId(userResult.data.userId);
+          userId = userResult.data.userId;
+          setCurrentUserId(userId);
         }
 
         // Fetch plants
@@ -69,22 +75,39 @@ export default function CreateTower() {
           const plantsArray = Array.isArray(result.data) ? result.data : result.data.data;
           
           if (Array.isArray(plantsArray) && plantsArray.length > 0) {
-            // Transform backend data to match frontend format
-            const transformedPlants = plantsArray.map(plant => {
-              // Check if plant has user info and if user is NOT user 1 (system user)
-              const isCustomPlant = plant.user && plant.user.id !== 1;
-              console.log('Processing plant:', plant.name, 'user:', plant.user, 'isCustom:', isCustomPlant);
-              return {
-                id: plant.id,
-                name: plant.name,
-                ph: `${plant.min_ph_level} - ${plant.max_ph_level}`,
-                ppm: `${plant.min_ppm} - ${plant.max_ppm} ppm`,
-                isCustom: isCustomPlant, // Mark as custom if created by user other than user 1
-                userId: plant.user?.id
-              };
-            });
+            // Transform and filter plants
+            const transformedPlants = plantsArray
+              .map(plant => {
+                // Check if plant has user info and if user is NOT user 1 (system user)
+                const plantUserId = plant.user?.id;
+                const isCustomPlant = plantUserId && plantUserId !== 1;
+                
+                return {
+                  id: plant.id,
+                  name: plant.name,
+                  ph: `${plant.min_ph_level} - ${plant.max_ph_level}`,
+                  ppm: `${plant.min_ppm} - ${plant.max_ppm} ppm`,
+                  isCustom: isCustomPlant,
+                  userId: plantUserId
+                };
+              })
+              // Filter: Show system plants (user 1) OR custom plants created by current user
+              .filter(plant => {
+                console.log(`Filtering plant "${plant.name}": isCustom=${plant.isCustom}, plantUserId=${plant.userId}, currentUserId=${userId}`);
+                
+                // System plants (user 1 or no user) are visible to everyone
+                if (!plant.userId || plant.userId === 1) {
+                  console.log(`  -> Showing (system plant)`);
+                  return true;
+                }
+                
+                // Custom plants are only visible to their creator
+                const shouldShow = plant.userId === userId;
+                console.log(`  -> ${shouldShow ? 'Showing' : 'Hiding'} (custom plant, creator: ${plant.userId})`);
+                return shouldShow;
+              });
 
-            console.log('Transformed plants:', transformedPlants);
+            console.log(`Total plants: ${plantsArray.length}, Filtered plants for user ${userId}: ${transformedPlants.length}`);
             setPlants(transformedPlants);
           } else {
             console.warn('No plants found in response');
@@ -114,7 +137,20 @@ export default function CreateTower() {
     return `${yyyy}-${mm}-${dd}`;
   };
 
+  // Check if a date is in the past (before today)
+  const isPastDate = (day) => {
+    const date = makeDate(day);
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return date < todayStart;
+  };
+
   const handleDateClick = (day) => {
+    // Prevent selecting past dates
+    if (isPastDate(day)) {
+      toast.error('Cannot select past dates');
+      return;
+    }
+
     const clickedDate = makeDate(day);
     if (!startDate || (startDate && endDate)) {
       setStartDate(clickedDate);
@@ -196,10 +232,10 @@ export default function CreateTower() {
       setCustomPpmMin('');
       setCustomPpmMax('');
 
-      alert('Custom plant created successfully!');
+      toast.success('Custom plant created successfully!');
     } catch (error) {
       console.error('Error creating custom plant:', error);
-      alert('Failed to create custom plant. Please try again.');
+      toast.error('Failed to create custom plant. Please try again.');
     }
   };
 
@@ -264,14 +300,17 @@ const handleCustomFrequencySave = () => {
       selectedPlant === 'custom' ? customPlantData : plants.find((p) => p.name === selectedPlant);
 
     if (!towerName || !plant || wateringTimes.length === 0 || wateringTimes.some(t => !t) || !wateringFrequency || !startDate || !endDate) {
-      alert('Please complete all fields before submitting');
+      toast.error('Please complete all fields before submitting');
       return;
     }
 
     if (!currentUserId) {
-      alert('User session not found. Please log in again.');
+      toast.error('User session not found. Please log in again.');
       return;
     }
+
+    setIsSubmitting(true);
+    toast.loading('Creating tower...');
 
     // Prepare payload matching backend TowerRO structure
     const payload = {
@@ -309,16 +348,34 @@ const handleCustomFrequencySave = () => {
       
       const data = await res.json();
       console.log('Tower created successfully:', data);
-      alert('Tower successfully created!');
-      router.push('/homepage/managetower');
+      toast.dismiss();
+      toast.success('Tower successfully created!');
+      setTimeout(() => {
+        router.push('/homepage/managetower');
+      }, 1000);
     } catch (err) {
       console.error('Failed to create tower:', err);
+      toast.dismiss();
       const errorMsg = err.message || 'Unknown error occurred';
-      alert(`Error creating tower: ${errorMsg}\n\nPlease check the console for more details.`);
+      toast.error(`Error creating tower: ${errorMsg}`);
+      setIsSubmitting(false);
     }
   };
 
   const prevMonth = () => {
+    // Calculate what the previous month would be
+    const prevMonthValue = month === 0 ? 11 : month - 1;
+    const prevYearValue = month === 0 ? year - 1 : year;
+    
+    // Don't allow going to months before the current month
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    if (prevYearValue < currentYear || (prevYearValue === currentYear && prevMonthValue < currentMonth)) {
+      toast.error('Cannot navigate to past months');
+      return;
+    }
+    
     if (month === 0) {
       setMonth(11);
       setYear((y) => y - 1);
@@ -337,29 +394,80 @@ const handleCustomFrequencySave = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-green-50 pl-64">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       <Sidebar />
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 ml-64">
         <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Create Tower</h1>
-          <p className="text-gray-600 mb-10">Set up your aeroponics system for optimal plant growth</p>
+          {/* Header with decorative elements */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-12 relative overflow-visible"
+          >
+            {/* Decorative background */}
+            <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
+            <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
+            
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Plus className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
+                    Create Tower
+                  </h1>
+                  <p className="text-gray-600 text-lg mt-1">
+                    Set up your aeroponics system for optimal plant growth
+                  </p>
+                </div>
+              </div>
+              
+              {/* Back Button */}
+              <motion.button
+                type="button"
+                onClick={() => router.push('/homepage/managetower')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-2xl font-semibold shadow-lg hover:shadow-xl hover:border-green-200 transition-all"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Back to Towers
+              </motion.button>
+            </div>
+          </motion.div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* Tower Name */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6 lg:col-span-2">
-              <h2 className="font-semibold text-lg text-gray-800 mb-3">Tower Name</h2>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
+            >
+              <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                <Leaf className="w-5 h-5 text-green-600" />
+                Tower Name
+              </h2>
               <input
                 type="text"
                 value={towerName}
                 onChange={(e) => setTowerName(e.target.value)}
                 placeholder="Enter tower name"
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                required
               />
-            </div>
+            </motion.div>
 
             {/* Plant */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8"
+            >
               <h2 className="font-semibold text-lg text-gray-800 mb-3">Select Your Plant</h2>
               <select
                 value={selectedPlant}
@@ -390,20 +498,28 @@ const handleCustomFrequencySave = () => {
                   <p><strong>PPM:</strong> {customPlantData.ppm}</p>
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Watering Schedule */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
-              <h2 className="font-semibold text-lg text-gray-800 mb-3">Watering Schedule</h2>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8"
+            >
+              <h2 className="font-bold text-xl text-gray-800 mb-6 flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-green-600" />
+                Watering Schedule
+              </h2>
 
               {/* Watering Frequency */}
-              <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" /> Watering Frequency
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                Watering Frequency
               </label>
               <select
                 value={wateringFrequency}
                 onChange={(e) => handleFrequencyChange(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400 mb-4"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all mb-6"
               >
                 <option value="">Select frequency</option>
                 <option value="1">Once a day</option>
@@ -414,46 +530,63 @@ const handleCustomFrequencySave = () => {
 
               {/* Dynamic Watering Times */}
               {wateringTimes.length > 0 && (
-                <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Watering Times
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-green-600" /> Watering Times
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-4">
                     {wateringTimes.map((time, index) => (
                       <div key={index} className="flex flex-col">
-                        <span className="text-xs text-gray-500 mb-1">Time {index + 1}</span>
+                        <span className="text-xs font-medium text-gray-600 mb-2">Time {index + 1}</span>
                         <input
                           type="time"
                           value={time}
                           onChange={(e) => handleTimeChange(index, e.target.value)}
-                          className="px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-400"
+                          className="px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                         />
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Calendar */}
-<div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6 lg:col-span-2">
-  <h2 className="font-semibold text-lg text-gray-800 mb-3">Select Watering Period</h2>
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.5, delay: 0.4 }}
+  className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
+>
+  <h2 className="font-bold text-xl text-gray-800 mb-6 flex items-center gap-2">
+    <Calendar className="w-5 h-5 text-green-600" />
+    Select Watering Period
+  </h2>
 
   {/* Month navigation */}
-  <div className="flex justify-between items-center mb-4">
-    <button type="button" onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg">
-      <ChevronLeft className="w-5 h-5 text-gray-600" />
+  <div className="flex justify-between items-center mb-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-4">
+    <button 
+      type="button" 
+      onClick={prevMonth} 
+      disabled={year === today.getFullYear() && month === today.getMonth()}
+      className={`p-2 rounded-xl transition ${
+        year === today.getFullYear() && month === today.getMonth()
+          ? 'text-gray-300 cursor-not-allowed'
+          : 'hover:bg-white hover:shadow-md text-gray-700'
+      }`}
+    >
+      <ChevronLeft className="w-5 h-5" />
     </button>
-    <h3 className="text-lg font-semibold text-gray-800">{monthNames[month]} {year}</h3>
-    <button type="button" onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg">
-      <ChevronRight className="w-5 h-5 text-gray-600" />
+    <h3 className="text-xl font-bold text-gray-800">{monthNames[month]} {year}</h3>
+    <button type="button" onClick={nextMonth} className="p-2 hover:bg-white hover:shadow-md rounded-xl transition text-gray-700">
+      <ChevronRight className="w-5 h-5" />
     </button>
   </div>
 
   {/* Weekdays */}
-<div className="grid grid-cols-7 text-center font-medium text-gray-500 mb-2 w-full">
+<div className="grid grid-cols-7 text-center font-semibold text-gray-600 mb-3 w-full">
   {weekDays.map((day) => (
-    <div key={day} className="flex items-center justify-center">
+    <div key={day} className="flex items-center justify-center py-2">
       {day}
     </div>
   ))}
@@ -467,45 +600,68 @@ const handleCustomFrequencySave = () => {
   ))}
 
   {/* Days in month */}
-  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
-    <button
-      type="button"
-      key={day}
-      onClick={() => handleDateClick(day)}
-      className={`w-9 h-9 flex items-center justify-center rounded-md text-sm transition mx-auto
-        ${
-          isSelected(day)
-            ? 'bg-green-600 text-white font-semibold shadow-md'
-            : 'bg-gray-100 text-gray-600 hover:bg-green-100'
-        }`}
-    >
-      {day}
-    </button>
-  ))}
+  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+    const isPast = isPastDate(day);
+    const selected = isSelected(day);
+    
+    return (
+      <button
+        type="button"
+        key={day}
+        onClick={() => handleDateClick(day)}
+        disabled={isPast}
+        className={`w-11 h-11 flex items-center justify-center rounded-xl text-sm font-medium transition mx-auto
+          ${
+            isPast
+              ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+              : selected
+              ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold shadow-lg scale-105'
+              : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-green-400 hover:bg-green-50 cursor-pointer'
+          }`}
+      >
+        {day}
+      </button>
+    );
+  })}
 </div>
 
 
 
 
   {(startDate || endDate) && (
-    <p className="mt-4 text-sm text-gray-700">
-      <strong>Selected range:</strong>{' '}
-      {startDate ? startDate.toDateString() : ''}{' '}
-      {endDate ? `→ ${endDate.toDateString()}` : ''}
-    </p>
+    <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border-2 border-green-200">
+      <p className="text-sm font-semibold text-gray-800">
+        <span className="text-green-700">Selected Period:</span>{' '}
+        {startDate ? startDate.toDateString() : ''}{' '}
+        {endDate ? `→ ${endDate.toDateString()}` : ''}
+      </p>
+    </div>
   )}
-</div>
+</motion.div>
 
           </form>
 
-          <div className="mt-10 flex justify-center">
-            <button
+          <div className="mt-10 flex justify-center gap-4">
+            <motion.button
+              type="button"
+              onClick={() => router.push('/homepage/managetower')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="bg-white border-2 border-gray-300 text-gray-700 px-10 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl hover:border-gray-400 transition-all"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
               type="submit"
               onClick={handleSubmit}
-              className="bg-green-600 text-white px-10 py-4 rounded-xl font-semibold shadow-lg hover:bg-green-700 transition"
+              disabled={isSubmitting}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-10 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              CREATE TOWER
-            </button>
+              {isSubmitting && <LoadingSpinner size="sm" color="white" />}
+              {isSubmitting ? 'CREATING TOWER...' : 'CREATE TOWER'}
+            </motion.button>
           </div>
         </main>
         <Footer />

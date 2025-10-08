@@ -12,6 +12,8 @@ import {
   LogOut,
   Menu,
   X,
+  Leaf,
+  ChevronRight,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -79,125 +81,163 @@ export default function Sidebar() {
       {/* Mobile toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 bg-green-700 text-white p-2 rounded-lg shadow-lg"
+        className="md:hidden fixed top-4 left-4 z-50 bg-gradient-to-br from-green-600 to-green-700 text-white p-3 rounded-xl shadow-lg hover:shadow-xl transition-all"
       >
         {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </button>
 
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 h-screen w-64 bg-green-700 text-white flex flex-col z-40
+          fixed top-0 left-0 h-screen w-64 bg-gradient-to-b from-green-700 via-green-800 to-green-900 text-white flex flex-col z-40 shadow-2xl
           transform transition-transform duration-300 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0
         `}
       >
         {/* Brand / Logo */}
-        <div className="flex items-center px-4 py-5 border-b border-green-600">
+        <div className="flex items-center gap-3 px-6 py-6 border-b border-green-600/30">
+          <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center">
+            <Leaf className="h-6 w-6 text-green-300" />
+          </div>
           <Link
-            href="/dashboard"
-            className="font-bold text-2xl tracking-wide"
+            href="/homepage/dashboard"
+            className="font-bold text-2xl tracking-tight hover:text-green-200 transition"
             onClick={() => setIsOpen(false)}
           >
-            🌱 UrbanFarm
+            UrbanFarm
           </Link>
         </div>
 
         {/* User Profile */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-green-600">
-          <div className="flex items-center justify-center w-10 h-10 bg-green-600 rounded-full">
-            <User className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <p className="text-sm text-gray-200">Welcome,</p>
-            {loading ? (
-              <div className="h-5 w-24 bg-green-600 animate-pulse rounded"></div>
-            ) : (
-              <p className="font-semibold">{userName}</p>
-            )}
+        <div className="mx-4 my-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full ring-2 ring-white/20">
+              <User className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-green-200 font-medium">Welcome back</p>
+              {loading ? (
+                <div className="h-5 w-28 bg-white/20 animate-pulse rounded mt-1"></div>
+              ) : (
+                <p className="font-semibold text-white truncate">{userName}</p>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 mt-4 space-y-1 text-lg font-medium">
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
           <Link
             href="/homepage/dashboard"
             onClick={() => setIsOpen(false)}
-            className={`flex items-center px-4 py-3 transition relative ${
+            className={`group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
               isActive('/homepage/dashboard')
-                ? 'bg-green-600 border-l-4 border-white'
-                : 'hover:bg-green-600'
+                ? 'bg-white/15 text-white shadow-lg'
+                : 'text-green-100 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <LayoutDashboard className="h-6 w-6" />
-            <span className="ml-3">Dashboard</span>
+            <div className="flex items-center gap-3">
+              <LayoutDashboard className="h-5 w-5" />
+              <span className="font-medium">Dashboard</span>
+            </div>
+            {isActive('/homepage/dashboard') && (
+              <ChevronRight className="h-4 w-4" />
+            )}
           </Link>
 
           <Link
             href="/homepage/managetower"
             onClick={() => setIsOpen(false)}
-            className={`flex items-center px-4 py-3 transition relative ${
+            className={`group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
               isActive('/homepage/managetower')
-                ? 'bg-green-600 border-l-4 border-white'
-                : 'hover:bg-green-600'
+                ? 'bg-white/15 text-white shadow-lg'
+                : 'text-green-100 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <Building2 className="h-6 w-6" />
-            <span className="ml-3">Towers</span>
+            <div className="flex items-center gap-3">
+              <Building2 className="h-5 w-5" />
+              <span className="font-medium">Towers</span>
+            </div>
+            {isActive('/homepage/managetower') && (
+              <ChevronRight className="h-4 w-4" />
+            )}
           </Link>
 
           <Link
             href="/homepage/logs"
             onClick={() => setIsOpen(false)}
-            className={`flex items-center px-4 py-3 transition relative ${
+            className={`group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
               isActive('/homepage/logs')
-                ? 'bg-green-600 border-l-4 border-white'
-                : 'hover:bg-green-600'
+                ? 'bg-white/15 text-white shadow-lg'
+                : 'text-green-100 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <FileText className="h-6 w-6" />
-            <span className="ml-3">Logs</span>
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5" />
+              <span className="font-medium">Logs</span>
+            </div>
+            {isActive('/homepage/logs') && (
+              <ChevronRight className="h-4 w-4" />
+            )}
           </Link>
 
           <Link
             href="/homepage/account"
             onClick={() => setIsOpen(false)}
-            className={`flex items-center px-4 py-3 transition relative ${
+            className={`group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
               isActive('/homepage/account')
-                ? 'bg-green-600 border-l-4 border-white'
-                : 'hover:bg-green-600'
+                ? 'bg-white/15 text-white shadow-lg'
+                : 'text-green-100 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <User className="h-6 w-6" />
-            <span className="ml-3">My Account</span>
+            <div className="flex items-center gap-3">
+              <User className="h-5 w-5" />
+              <span className="font-medium">My Account</span>
+            </div>
+            {isActive('/homepage/account') && (
+              <ChevronRight className="h-4 w-4" />
+            )}
           </Link>
 
           <Link
             href="/homepage/about"
             onClick={() => setIsOpen(false)}
-            className={`flex items-center px-4 py-3 transition relative ${
+            className={`group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
               isActive('/homepage/about')
-                ? 'bg-green-600 border-l-4 border-white'
-                : 'hover:bg-green-600'
+                ? 'bg-white/15 text-white shadow-lg'
+                : 'text-green-100 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <Info className="h-6 w-6" />
-            <span className="ml-3">About</span>
+            <div className="flex items-center gap-3">
+              <Info className="h-5 w-5" />
+              <span className="font-medium">About</span>
+            </div>
+            {isActive('/homepage/about') && (
+              <ChevronRight className="h-4 w-4" />
+            )}
           </Link>
         </nav>
 
         {/* Logout Button at Bottom */}
-        <div className="px-4 py-4 border-t border-green-600">
+        <div className="p-4 border-t border-white/10">
           <button
             onClick={() => {
               setIsOpen(false);
               handleLogout();
             }}
-            className="flex items-center w-full px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg transition"
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all duration-200 font-medium shadow-lg hover:shadow-xl backdrop-blur-sm"
           >
             <LogOut className="h-5 w-5" />
-            <span className="ml-2">Logout</span>
+            <span>Logout</span>
           </button>
         </div>
       </aside>

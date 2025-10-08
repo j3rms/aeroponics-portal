@@ -1,8 +1,10 @@
 'use client';
 
 import Sidebar from "@/components/sidebar";
+import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { FileText, ChevronLeft, ChevronRight, Droplets, Activity, Gauge, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 // Data is now fetched from backend via /apis/getLogs
 
@@ -47,6 +49,8 @@ export default function Logs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sortField, setSortField] = useState('timestamp'); // Default sort by timestamp
+  const [sortOrder, setSortOrder] = useState('desc'); // Default descending (latest first)
   const itemsPerPage = 12;
 
   useEffect(() => {
@@ -69,10 +73,54 @@ export default function Logs() {
     fetchLogs();
   }, []);
 
+  // Handle sorting
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // Toggle order if same field
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to ascending
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting
+  };
+
   const sortedData = [...logs].sort((a, b) => {
-    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-    return timeB - timeA; // Latest to oldest (descending)
+    let aValue, bValue;
+
+    switch (sortField) {
+      case 'id':
+        aValue = a.id || 0;
+        bValue = b.id || 0;
+        break;
+      case 'tower':
+        aValue = (a.towerName || '').toLowerCase();
+        bValue = (b.towerName || '').toLowerCase();
+        break;
+      case 'ph':
+        aValue = a.phLevel || 0;
+        bValue = b.phLevel || 0;
+        break;
+      case 'ppm':
+        aValue = a.ppmLevel || 0;
+        bValue = b.ppmLevel || 0;
+        break;
+      case 'water':
+        aValue = a.waterLevel || 0;
+        bValue = b.waterLevel || 0;
+        break;
+      case 'timestamp':
+        aValue = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        bValue = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        break;
+      default:
+        return 0;
+    }
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
   });
 
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
@@ -82,84 +130,206 @@ export default function Logs() {
   );
 
   return (
-    <div className="flex min-h-screen bg-green-50 pl-0 md:pl-64">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       <Sidebar />
-      <div className="flex flex-col flex-1">
-        <main className="flex-1 max-w-8xl mx-auto w-full px-4 md:px-10 py-8 md:py-14">
-          {/* Title */}
-          <motion.h1
-            initial={{ opacity: 0, y: -10 }}
+      <div className="flex flex-col flex-1 ml-64">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-6 md:px-10 py-10 md:py-12">
+          {/* Header with decorative elements */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-2xl md:text-4xl font-bold text-gray-800 mb-4"
+            transition={{ duration: 0.6 }}
+            className="mb-12 relative overflow-visible"
           >
-            Tower Data Logs
-          </motion.h1>
-          <p className="text-gray-600 text-sm md:text-lg mb-6 md:mb-10">
-            View historical sensor data from your towers
-          </p>
+            {/* Decorative background */}
+            <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
+            <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
+            
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <FileText className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
+                  Tower Data Logs
+                </h1>
+                <p className="text-gray-600 text-lg mt-1">
+                  View historical sensor data from your towers
+                </p>
+              </div>
+            </div>
+          </motion.div>
 
           {/* Data Table */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="bg-white rounded-2xl border border-gray-200 shadow-xl hover:shadow-2xl transition-shadow duration-300 overflow-hidden w-full"
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden w-full"
           >
             <div className="overflow-x-auto">
-              <table className="w-full text-sm md:text-lg min-w-full">
-                <thead className="bg-green-700 text-white text-sm md:text-lg">
+              <table className="w-full text-sm md:text-base min-w-full">
+                <thead className="bg-gradient-to-r from-green-600 to-emerald-600 text-white">
                   <tr>
-                    <th className="px-2 md:px-5 py-2 md:py-4 text-center font-bold">ID</th>
-                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">TOWER</th>
-                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">PH</th>
-                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">PPM</th>
-                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">WATER</th>
-                    <th className="px-3 md:px-6 py-2 md:py-4 text-center font-bold">TIMESTAMP</th>
+                    <th className="px-3 md:px-5 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                      <button
+                        onClick={() => handleSort('id')}
+                        className="flex items-center justify-center gap-1 mx-auto hover:bg-white/10 px-2 py-1 rounded-lg transition-colors"
+                      >
+                        <span>#</span>
+                        {sortField === 'id' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                      <button
+                        onClick={() => handleSort('tower')}
+                        className="flex items-center justify-center gap-1 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
+                      >
+                        <span>TOWER</span>
+                        {sortField === 'tower' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                      <button
+                        onClick={() => handleSort('ph')}
+                        className="flex items-center justify-center gap-2 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
+                      >
+                        <Activity className="w-4 h-4" />
+                        <span>PH</span>
+                        {sortField === 'ph' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                      <button
+                        onClick={() => handleSort('ppm')}
+                        className="flex items-center justify-center gap-2 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
+                      >
+                        <Gauge className="w-4 h-4" />
+                        <span>PPM</span>
+                        {sortField === 'ppm' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                      <button
+                        onClick={() => handleSort('water')}
+                        className="flex items-center justify-center gap-2 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
+                      >
+                        <Droplets className="w-4 h-4" />
+                        <span>WATER</span>
+                        {sortField === 'water' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                      <button
+                        onClick={() => handleSort('timestamp')}
+                        className="flex items-center justify-center gap-1 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
+                      >
+                        <span>TIMESTAMP</span>
+                        {sortField === 'timestamp' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Loading logs...</td>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="font-medium">Loading logs...</span>
+                        </div>
+                      </td>
                     </tr>
                   ) : currentData.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">No logs available</td>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                        <div className="flex flex-col items-center gap-2">
+                          <FileText className="w-12 h-12 text-gray-300" />
+                          <span className="font-medium">No logs available</span>
+                        </div>
+                      </td>
                     </tr>
                   ) : currentData.map((data, index) => (
                     <tr
                       key={data.id}
-                      className={`border-b border-gray-100 hover:bg-gray-50 ${
-                        index % 2 === 0 ? 'bg-green-50/50' : 'bg-white'
+                      className={`border-b border-gray-100 hover:bg-green-50 transition-colors ${
+                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                       }`}
                     >
-                      <td className="px-2 md:px-5 py-2 md:py-4 text-center font-medium text-gray-600">
-                        {data.id}
+                      <td className="px-3 md:px-5 py-3 md:py-4 text-center font-medium text-gray-500">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-xs font-semibold">
+                          {data.id}
+                        </span>
                       </td>
-                      <td className="px-3 md:px-6 py-2 md:py-4 text-center font-semibold text-gray-800">
-                        <span className="block md:inline truncate max-w-[80px] md:max-w-none">{data.towerName}</span>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-center">
+                        <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-green-100 text-green-800 font-semibold text-sm truncate max-w-[120px] md:max-w-none">
+                          {data.towerName}
+                        </span>
                       </td>
-                      <td className={`px-3 md:px-6 py-2 md:py-4 text-center font-semibold ${getStatusColor('ph', data.phLevel, data.towerName)}`}>
-                        {Number.isFinite(data.phLevel) ? data.phLevel.toFixed(1) : '—'}
+                      <td className={`px-4 md:px-6 py-3 md:py-4 text-center`}>
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-bold text-sm ${
+                          getStatusColor('ph', data.phLevel, data.towerName).includes('green') 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {Number.isFinite(data.phLevel) ? data.phLevel.toFixed(1) : '—'}
+                        </span>
                       </td>
-                      <td className={`px-3 md:px-6 py-2 md:py-4 text-center font-semibold ${getStatusColor('ppm', data.ppmLevel, data.towerName)}`}>
-                        {Number.isFinite(data.ppmLevel) ? data.ppmLevel.toLocaleString() : '—'}
+                      <td className={`px-4 md:px-6 py-3 md:py-4 text-center`}>
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-bold text-sm ${
+                          getStatusColor('ppm', data.ppmLevel, data.towerName).includes('green') 
+                            ? 'bg-green-100 text-green-700' 
+                            : getStatusColor('ppm', data.ppmLevel, data.towerName).includes('yellow')
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {Number.isFinite(data.ppmLevel) ? data.ppmLevel.toLocaleString() : '—'}
+                        </span>
                       </td>
-                      <td className={`px-3 md:px-6 py-2 md:py-4 text-center font-semibold ${getStatusColor('water', data.waterLevel, data.towerName)}`}>
-                        {Number.isFinite(data.waterLevel) ? `${data.waterLevel}%` : '—'}
+                      <td className={`px-4 md:px-6 py-3 md:py-4 text-center`}>
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-bold text-sm ${
+                          getStatusColor('water', data.waterLevel, data.towerName).includes('green') 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {Number.isFinite(data.waterLevel) ? `${data.waterLevel}%` : '—'}
+                        </span>
                       </td>
-                      <td className="px-3 md:px-6 py-2 md:py-4 text-center font-medium text-gray-600">
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-center">
                         {data.time ? (
-                          <div className="flex flex-col items-center">
-                            <span className="text-xs md:text-sm font-semibold text-gray-800">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs md:text-sm font-bold text-gray-800">
                               {new Date(`2000-01-01T${data.time}`).toLocaleTimeString('en-US', {
                                 hour: 'numeric',
                                 minute: '2-digit',
                                 hour12: true
                               })}
                             </span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 font-medium">
                               {new Date(data.timestamp).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
@@ -167,7 +337,9 @@ export default function Logs() {
                               })}
                             </span>
                           </div>
-                        ) : '—'}
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -176,29 +348,39 @@ export default function Logs() {
             </div>
 
             {/* Pagination */}
-            <div className="flex justify-between items-center px-4 md:px-10 py-4 md:py-5 bg-gray-50 border-t border-gray-100">
-              <button
+            <div className="flex justify-between items-center px-6 md:px-10 py-5 md:py-6 bg-gradient-to-r from-green-50 to-emerald-50 border-t-2 border-green-100">
+              <motion.button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 md:px-6 py-2 text-sm md:text-base font-medium text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 text-sm md:text-base font-semibold text-gray-700 bg-white border-2 border-gray-200 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:border-green-300 hover:shadow-md transition-all"
               >
+                <ChevronLeft className="w-4 h-4" />
                 <span className="hidden md:inline">Previous</span>
                 <span className="md:hidden">Prev</span>
-              </button>
-              <span className="text-sm md:text-base text-gray-600">
-                <span className="hidden md:inline">Page {currentPage} of {totalPages}</span>
-                <span className="md:hidden">{currentPage}/{totalPages}</span>
-              </span>
-              <button
+              </motion.button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm md:text-base font-semibold text-gray-700 bg-white px-4 py-2 rounded-xl border-2 border-green-200">
+                  <span className="hidden md:inline">Page {currentPage} of {totalPages}</span>
+                  <span className="md:hidden">{currentPage}/{totalPages}</span>
+                </span>
+              </div>
+              <motion.button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="px-3 md:px-6 py-2 text-sm md:text-base font-medium text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 text-sm md:text-base font-semibold text-gray-700 bg-white border-2 border-gray-200 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:border-green-300 hover:shadow-md transition-all"
               >
-                Next
-              </button>
+                <span className="hidden md:inline">Next</span>
+                <span className="md:hidden">Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </motion.button>
             </div>
           </motion.div>
         </main>
+        <Footer />
       </div>
     </div>
   );

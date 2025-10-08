@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
-import { Eye, EyeOff } from "lucide-react"; // added for password show/hide
+import { Eye, EyeOff, Mail, Lock, LogIn, Leaf } from "lucide-react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function Login() {
   const router = useRouter();
@@ -18,7 +19,18 @@ export default function Login() {
   const handleSubmit = async (e) => {
       e.preventDefault();
       setErrorMessage(""); // Clear any previous error messages
-      toast.loading("Signing in...");
+      toast.loading("Signing in...", {
+        position: "top-center",
+        style: {
+          background: '#fff',
+          color: '#374151',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        },
+      });
       setIsDisabled(true);
   
       const formData = new FormData(e.target);
@@ -41,7 +53,24 @@ export default function Login() {
   
         if (response.ok && result.success) {
           document.cookie = `user=${JSON.stringify(result.user)}; path=/; max-age=3600`;
-          toast.success("Signed in successfully!");
+          toast.success("Signed in successfully!", {
+            duration: 2000,
+            position: "top-center",
+            style: {
+              background: '#10b981',
+              color: '#fff',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              padding: '16px 24px',
+              borderRadius: '12px',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            },
+            icon: '✓',
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#10b981',
+            },
+          });
           router.push("/homepage/dashboard");
         } else {
           // Handle login failure
@@ -63,43 +92,60 @@ export default function Login() {
     };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-green-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 px-4 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-20 left-10 w-72 h-72 bg-green-200/30 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl"></div>
+      
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="flex w-full max-w-4xl h-[600px] shadow-lg rounded-xl overflow-hidden bg-white"
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className="flex w-full max-w-5xl min-h-[650px] shadow-2xl rounded-3xl overflow-hidden bg-white/80 backdrop-blur-sm border-2 border-green-100 relative z-10"
       >
         {/* Left Side - Form */}
-        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+        <div className="w-full md:w-1/2 p-10 flex flex-col justify-center">
           {/* Logo */}
-          <div className="flex justify-center mb-6">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+            className="flex justify-center mb-8"
+          >
             <img
               src="images/urbanfarm (2).png"
               alt="UrbanFarm Logo"
-              className="h-20 w-auto"
+              className="h-24 w-auto"
             />
+          </motion.div>
+          
+          <div className="text-center mb-8">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent mb-2">
+              Welcome Back
+            </h2>
+            <p className="text-gray-600 text-base">
+              Sign in to manage your aeroponics system
+            </p>
           </div>
-          <h2 className="text-3xl font-extrabold text-green-800 text-center">
-            Login
-          </h2>
-          <p className="mt-2 text-center text-gray-600 text-sm">
-            Enter your credentials to access your account.
-          </p>
 
           {/* Error Message Display */}
           {errorMessage && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600 text-center">{errorMessage}</p>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 p-4 bg-red-50 border-2 border-red-300 rounded-xl"
+            >
+              <p className="text-sm text-red-700 text-center font-medium">{errorMessage}</p>
+            </motion.div>
           )}
 
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
+                className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2"
               >
+                <Mail className="w-4 h-4 text-green-600" />
                 Email Address
               </label>
               <input
@@ -109,69 +155,97 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-green-600 focus:outline-none"
-                placeholder="Enter your email"
+                className="block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                placeholder="your.email@example.com"
               />
             </div>
 
             <div className="relative">
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
+                className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2"
               >
+                <Lock className="w-4 h-4 text-green-600" />
                 Password
               </label>
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                id="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-green-600 focus:outline-none pr-10"
-                placeholder="Enter your password"
-              />
-              {/* Show/Hide Icon */}
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  id="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all pr-12 font-medium"
+                  placeholder="Enter your password"
+                />
+                {/* Show/Hide Icon */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
 
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: isDisabled ? 1 : 1.02 }}
+              whileTap={{ scale: isDisabled ? 1 : 0.98 }}
               type="submit"
-              className="w-full py-3 px-4 text-lg font-bold rounded-md text-white bg-green-700 hover:bg-green-800 transition"
+              disabled={isDisabled}
+              className="w-full py-4 px-4 text-lg font-bold rounded-2xl text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
-              Sign In
+              {isDisabled ? (
+                <>
+                  <LoadingSpinner size="sm" color="white" />
+                  Signing In...
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  Sign In
+                </>
+              )}
             </motion.button>
           </form>
 
-          <div className="mt-4 text-center">
-            <Link href="/forgotpass">
-              <span className="text-sm cursor-pointer font-medium text-green-700 hover:underline">
-                Forgot Password?
-              </span>
-            </Link>
-            <p className="mt-2 text-sm text-gray-600">
-              Don’t have an account?{" "}
-              <Link href="/signup">
-                <span className="font-medium cursor-pointer text-green-700 hover:underline">
-                  Create one
+          <div className="mt-6 space-y-4">
+            <div className="text-center">
+              <Link href="/forgotpass">
+                <span className="text-sm cursor-pointer font-semibold text-green-700 hover:text-green-800 transition-colors">
+                  Forgot Password?
                 </span>
               </Link>
-            </p>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500 font-medium">or</span>
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <p className="text-sm text-gray-600">
+                Don't have an account?{" "}
+                <Link href="/signup">
+                  <span className="font-bold cursor-pointer text-green-700 hover:text-green-800 transition-colors">
+                    Create Account
+                  </span>
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
 
         {/* Right Side - Image */}
-        <div className="hidden md:block md:w-1/2">
+        <div className="hidden md:block md:w-1/2 relative overflow-hidden">
           <img
-            src="images/aeroponics.jpg" // replace with your own image path
+            src="images/aeroponics.jpg"
             alt="Vertical Farming"
             className="h-full w-full object-cover"
           />

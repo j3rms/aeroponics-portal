@@ -1,8 +1,10 @@
 'use client';
 
 import Sidebar from "@/components/sidebar";
+import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
+import { TrendingUp, Droplets, Activity, Leaf, AlertCircle, Info } from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -204,46 +206,57 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-green-50 pl-64">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 pl-64">
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">
         <main className="flex-1 max-w-7xl mx-auto w-full px-10 py-12">
-          {/* Title and Tower Filter */}
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <motion.h1
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="text-3xl md:text-4xl font-bold text-gray-800"
-              >
-                Dashboard
-              </motion.h1>
-              <p className="text-gray-600 text-base md:text-lg mt-2">
-                Monitor your aeroponics system performance and plant tower activity
-              </p>
-            </div>
+          {/* Header with decorative elements */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8 relative"
+          >
+            {/* Decorative background */}
+            <div className="absolute -top-4 -left-4 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
+            <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
             
-            {/* Tower Filter Dropdown */}
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">View Data For:</label>
-              <select
-                value={selectedTowerFilter}
-                onChange={(e) => handleTowerFilterChange(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm font-medium text-gray-700 min-w-[200px]"
-              >
-                <option value="all">All Towers</option>
-                {towers.map((tower) => (
-                  <option key={tower.id} value={tower.id}>
-                    {tower.name} - {tower.plant?.name || 'No Plant'}
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Activity className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent">
+                    Dashboard
+                  </h1>
+                  <p className="text-gray-600 text-lg mt-1">
+                    Real-time monitoring of your aeroponics system
+                  </p>
+                </div>
+              </div>
+              
+              {/* Tower Filter Dropdown */}
+              <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-2xl shadow-lg border border-green-100">
+                <label className="text-sm font-semibold text-gray-700">Filter:</label>
+                <select
+                  value={selectedTowerFilter}
+                  onChange={(e) => handleTowerFilterChange(e.target.value)}
+                  className="px-4 py-2 border-2 border-green-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 min-w-[200px] cursor-pointer hover:border-green-300 transition-colors"
+                >
+                  <option value="all">🌍 All Towers</option>
+                  {towers.map((tower) => (
+                    <option key={tower.id} value={tower.id}>
+                      🏢 {tower.name} - {tower.plant?.name || 'No Plant'}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Error Message */}
           {error && (
@@ -254,106 +267,242 @@ export default function Dashboard() {
 
           {/* Average Data Indicator */}
           {selectedTowerFilter === 'all' && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="font-medium">Showing average data from all active towers</p>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 text-blue-800 px-6 py-4 rounded-2xl mb-8 flex items-center gap-3 shadow-sm"
+            >
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Info className="w-5 h-5 text-blue-600" />
+              </div>
+              <p className="font-semibold text-base">Showing average data from all active towers</p>
+            </motion.div>
           )}
 
           {/* Top Stats */}
-          <section className="flex flex-wrap gap-6 mb-12">
-            <div className="flex-1 min-w-[200px] bg-white rounded-2xl border shadow-sm p-6 text-center">
-              <p className="text-gray-600">{selectedTowerFilter === 'all' ? 'Avg pH' : 'pH'}</p>
-              {loading ? (
-                <div className="h-8 bg-gray-200 animate-pulse rounded mt-2"></div>
-              ) : (
-                <h2 className="text-2xl font-bold text-green-600">
-                  {sensorData.phValue.toFixed(1)}
-                </h2>
-              )}
-            </div>
-            <div className="flex-1 min-w-[200px] bg-white rounded-2xl border shadow-sm p-6 text-center">
-              <p className="text-gray-600">{selectedTowerFilter === 'all' ? 'Avg PPM' : 'PPM'}</p>
-              {loading ? (
-                <div className="h-8 bg-gray-200 animate-pulse rounded mt-2"></div>
-              ) : (
-                <h2 className="text-2xl font-bold text-blue-600">
-                  {sensorData.ppmValue.toFixed(0)} ppm
-                </h2>
-              )}
-            </div>
-            <div className="flex-1 min-w-[200px] bg-white rounded-2xl border shadow-sm p-6 text-center">
-              <p className="text-gray-600">{selectedTowerFilter === 'all' ? 'Avg Water Level' : 'Water Level'}</p>
-              {loading ? (
-                <div className="h-8 bg-gray-200 animate-pulse rounded mt-2"></div>
-              ) : (
-                <h2 className="text-2xl font-bold text-cyan-600">
-                  {sensorData.targetWaterLevel.toFixed(0)}%
-                </h2>
-              )}
-            </div>
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {/* pH Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-xs font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">Live</span>
+                </div>
+                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Average pH Level' : 'pH Level'}</p>
+                {loading ? (
+                  <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
+                ) : (
+                  <h2 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                    {sensorData.phValue.toFixed(1)}
+                  </h2>
+                )}
+              </div>
+            </motion.div>
+
+            {/* PPM Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-blue-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Activity className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Live</span>
+                </div>
+                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Average PPM' : 'PPM Level'}</p>
+                {loading ? (
+                  <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
+                ) : (
+                  <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                    {sensorData.ppmValue.toFixed(0)} <span className="text-2xl">ppm</span>
+                  </h2>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Water Level Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-cyan-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-50/50 to-teal-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Droplets className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-xs font-semibold text-cyan-600 bg-cyan-100 px-3 py-1 rounded-full">Live</span>
+                </div>
+                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Average Water Level' : 'Water Level'}</p>
+                {loading ? (
+                  <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
+                ) : (
+                  <h2 className="text-4xl font-bold bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
+                    {sensorData.targetWaterLevel.toFixed(0)}<span className="text-2xl">%</span>
+                  </h2>
+                )}
+              </div>
+            </motion.div>
           </section>
 
           {/* Charts Section */}
-          <section className="mb-12">
-            <h2 className="text-lg md:text-xl font-semibold mb-6 text-gray-800">
-              Nutrient & Water Monitoring
-            </h2>
-            <div className="flex flex-wrap gap-6">
-              {/* pH Level */}
-              <div className="flex-1 min-w-[300px] bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-                <h3 className="font-bold text-green-900 mb-6">pH Level</h3>
-                <LineChart
-                  data={{
-                    labels: chartData.labels,
-                    datasets: [
-                      {
-                        label: "pH Level",
-                        data: chartData.phData,
-                        borderColor: "#4CAF50",
-                        fill: false,
-                        tension: 0.4,
-                      },
-                    ],
-                  }}
-                  options={{
-                    responsive: true,
-                    plugins: { legend: { display: true } },
-                    scales: { y: { beginAtZero: false } },
-                  }}
-                />
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="mb-16"
+          >
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
+              <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                Nutrient & Water Monitoring
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-[45%_45%_10%] gap-6">
+              {/* pH Level Chart */}
+              <motion.div
+                whileHover={{ y: -4 }}
+                className="group bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl"></div>
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md">
+                      <TrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="font-bold text-gray-800 text-lg">pH Level Trend</h3>
+                  </div>
+                  <LineChart
+                    data={{
+                      labels: chartData.labels,
+                      datasets: [
+                        {
+                          label: "pH Level",
+                          data: chartData.phData,
+                          borderColor: "#10b981",
+                          backgroundColor: "rgba(16, 185, 129, 0.1)",
+                          fill: true,
+                          tension: 0.4,
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          pointHoverRadius: 6,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      plugins: { 
+                        legend: { 
+                          display: true,
+                          labels: {
+                            font: { size: 12, weight: 'bold' },
+                            color: '#374151'
+                          }
+                        } 
+                      },
+                      scales: { 
+                        y: { 
+                          beginAtZero: false,
+                          grid: { color: '#f3f4f6' }
+                        },
+                        x: {
+                          grid: { display: false }
+                        }
+                      },
+                    }}
+                  />
+                </div>
+              </motion.div>
 
-              {/* PPM Level */}
-              <div className="flex-1 min-w-[300px] bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-                <h3 className="font-bold text-green-900 mb-6">PPM Level</h3>
-                <LineChart
-                  data={{
-                    labels: chartData.labels,
-                    datasets: [
-                      {
-                        label: "PPM Level",
-                        data: chartData.ppmData,
-                        borderColor: "#2196F3",
-                        fill: false,
-                        tension: 0.4,
+              {/* PPM Level Chart */}
+              <motion.div
+                whileHover={{ y: -4 }}
+                className="group bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-blue-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl"></div>
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-md">
+                      <Activity className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="font-bold text-gray-800 text-lg">PPM Level Trend</h3>
+                  </div>
+                  <LineChart
+                    data={{
+                      labels: chartData.labels,
+                      datasets: [
+                        {
+                          label: "PPM Level",
+                          data: chartData.ppmData,
+                          borderColor: "#3b82f6",
+                          backgroundColor: "rgba(59, 130, 246, 0.1)",
+                          fill: true,
+                          tension: 0.4,
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          pointHoverRadius: 6,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      plugins: { 
+                        legend: { 
+                          display: true,
+                          labels: {
+                            font: { size: 12, weight: 'bold' },
+                            color: '#374151'
+                          }
+                        } 
                       },
-                    ],
-                  }}
-                  options={{
-                    responsive: true,
-                    plugins: { legend: { display: true } },
-                    scales: { y: { beginAtZero: false } },
-                  }}
-                />
-              </div>
+                      scales: { 
+                        y: { 
+                          beginAtZero: false,
+                          grid: { color: '#f3f4f6' }
+                        },
+                        x: {
+                          grid: { display: false }
+                        }
+                      },
+                    }}
+                  />
+                </div>
+              </motion.div>
 
               {/* Water Tank */}
-              <div className="flex flex-col items-center min-w-[150px] bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-                <h3 className="font-bold text-green-900 mb-6">Water Level</h3>
-                <div className="relative w-20 h-64 bg-gray-200 rounded-lg border-2 border-gray-400 overflow-hidden">
+              <motion.div
+                whileHover={{ y: -4 }}
+                className="group flex flex-col items-center bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-cyan-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-4 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-50/50 to-teal-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl"></div>
+                <div className="relative w-full flex flex-col items-center h-full">
+                  <div className="flex flex-col items-center gap-1 mb-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md">
+                      <Droplets className="w-4 h-4 text-white" />
+                    </div>
+                    <h3 className="font-bold text-gray-800 text-xs text-center">Water Level</h3>
+                  </div>
+                  <div className="relative w-20 flex-1 min-h-[200px] bg-gradient-to-b from-gray-100 to-gray-200 rounded-2xl border-4 border-gray-300 overflow-hidden shadow-inner">
                   {/* Water Fill */}
                   <div
                     className="absolute bottom-0 left-0 w-full bg-cyan-500 transition-all duration-1000 ease-in-out overflow-hidden"
@@ -393,60 +542,109 @@ export default function Dashboard() {
                   </div>
 
                   {/* Percentage Label */}
-                  <div className="absolute inset-0 flex items-center justify-center font-bold text-gray-700 z-10">
+                  <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-gray-700 z-10">
                     {waterLevel}%
                   </div>
+                  </div>
                 </div>
-              </div>
+              </motion.div>
             </div>
-          </section>
+          </motion.section>
 
           {/* Active Tower Section */}
-          <section>
-            <h2 className="text-lg md:text-xl font-semibold mb-6 text-gray-800">
-              Active Towers
-            </h2>
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Leaf className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                Active Towers
+              </h2>
+            </div>
             
             {towersError && (
-              <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg mb-6">
-                <p>{towersError}</p>
-              </div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 text-yellow-800 px-6 py-4 rounded-2xl mb-6 flex items-center gap-3 shadow-sm"
+              >
+                <AlertCircle className="w-5 h-5 text-yellow-600" />
+                <p className="font-semibold">{towersError}</p>
+              </motion.div>
             )}
             
             {towersLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 flex flex-col items-center">
-                    <div className="h-32 w-32 bg-gray-200 animate-pulse rounded mb-5"></div>
-                    <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
+                  <div key={i} className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-gray-200 shadow-lg p-8 flex flex-col items-center">
+                    <div className="h-32 w-32 bg-gray-200 animate-pulse rounded-2xl mb-5"></div>
+                    <div className="h-6 w-24 bg-gray-200 animate-pulse rounded-xl"></div>
                   </div>
                 ))}
               </div>
             ) : towers.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
-                {towers.map((tower) => (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {towers.map((tower, index) => (
                   <motion.div
                     key={tower.id}
-                    whileHover={{ scale: 1.05 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    whileHover={{ y: -8, scale: 1.02 }}
                     onClick={() => handleTowerClick(tower)}
-                    className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md p-8 flex flex-col items-center transition cursor-pointer"
+                    className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl hover:border-green-200 p-8 flex flex-col items-center transition-all duration-300 cursor-pointer overflow-hidden"
                   >
-                    <img src="/images/tower.png" alt={tower.plant?.name || tower.name} className="h-32 mb-5" />
-                    <p className="font-bold text-green-900 text-lg text-center">
-                      {tower.plant?.name?.toUpperCase() || tower.name}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-2">{tower.name}</p>
+                    {/* Gradient overlay on hover */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl"></div>
+                    
+                    <div className="relative flex flex-col items-center">
+                      {/* Tower Image */}
+                      <div className="w-32 h-32 mb-5 group-hover:scale-110 transition-transform duration-300">
+                        <img 
+                          src="/images/tower.png" 
+                          alt={tower.plant?.name || tower.name} 
+                          className="w-full h-full object-contain drop-shadow-lg" 
+                        />
+                      </div>
+                      
+                      {/* Plant Name */}
+                      <div className="w-full text-center">
+                        <p className="font-bold text-gray-800 text-lg mb-2 group-hover:text-green-700 transition-colors">
+                          {tower.plant?.name?.toUpperCase() || tower.name}
+                        </p>
+                        <p className="text-sm text-gray-600 font-medium">{tower.name}</p>
+                        
+                        {/* Status Badge */}
+                        <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 rounded-full">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-semibold text-green-700">Active</span>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 ))}
               </div>
             ) : (
-              <div className="bg-gray-100 border border-gray-300 text-gray-600 px-6 py-8 rounded-lg text-center">
-                <p className="text-lg">No active towers found</p>
-                <p className="text-sm mt-2">Add a tower to get started</p>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white/80 backdrop-blur-sm border-2 border-gray-200 text-gray-600 px-8 py-12 rounded-3xl text-center shadow-lg"
+              >
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Leaf className="w-10 h-10 text-gray-400" />
+                </div>
+                <p className="text-lg font-semibold text-gray-700 mb-2">No active towers found</p>
+                <p className="text-sm text-gray-500">Add a tower to get started with monitoring</p>
+              </motion.div>
             )}
-          </section>
+          </motion.section>
+           
         </main>
+        <Footer />
       </div>
 
       {/* Tower Detail Modal */}
