@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
-import { Clock, RefreshCw, ChevronLeft, ChevronRight, X, Plus, Leaf, ArrowLeft, Calendar, Cpu } from 'lucide-react';
+import { Clock, RefreshCw, ChevronLeft, ChevronRight, X, Plus, Leaf, ArrowLeft, Calendar } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
+import DeviceAssignmentModal from '@/components/DeviceAssignmentModal';
 
 export default function CreateTower() {
   const router = useRouter();
@@ -15,10 +17,10 @@ export default function CreateTower() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Device states
-  const [devices, setDevices] = useState([]);
-  const [devicesLoading, setDevicesLoading] = useState(true);
-  const [selectedDevice, setSelectedDevice] = useState('');
+  // Device assignment modal states
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [createdTowerId, setCreatedTowerId] = useState(null);
+  const [createdTowerName, setCreatedTowerName] = useState('');
 
   const [towerName, setTowerName] = useState('');
   const [selectedPlant, setSelectedPlant] = useState('');
@@ -67,19 +69,6 @@ export default function CreateTower() {
           userId = userResult.data.userId;
           setCurrentUserId(userId);
         }
-
-        // Fetch devices
-        setDevicesLoading(true);
-        const devicesResponse = await fetch('/apis/getFreeDevices');
-        const devicesResult = await devicesResponse.json();
-        if (devicesResult.success && devicesResult.data) {
-          const devicesArray = Array.isArray(devicesResult.data) ? devicesResult.data : [];
-          setDevices(devicesArray);
-        } else {
-          console.error('Failed to fetch devices:', devicesResult.message);
-          setDevices([]);
-        }
-        setDevicesLoading(false);
 
         // Fetch plants
         setPlantsLoading(true);
@@ -315,7 +304,7 @@ const handleCustomFrequencySave = () => {
     const plant =
       selectedPlant === 'custom' ? customPlantData : plants.find((p) => p.name === selectedPlant);
 
-    if (!towerName || !plant || !selectedDevice || wateringTimes.length === 0 || wateringTimes.some(t => !t) || !wateringFrequency || !startDate || !endDate) {
+    if (!towerName || !plant || wateringTimes.length === 0 || wateringTimes.some(t => !t) || !wateringFrequency || !startDate || !endDate) {
       toast.error('Please complete all fields before submitting');
       return;
     }
@@ -333,7 +322,6 @@ const handleCustomFrequencySave = () => {
       name: towerName,
       user: { id: currentUserId }, // Use current logged-in user ID
       plant: { id: plant.id },
-      device: { id: parseInt(selectedDevice) }, // Selected device ID
       time: wateringTimes[0], // First watering time (HH:mm format, no seconds)
       water_level: 'MEDIUM', // Use enum value: HIGH, MEDIUM, or LOW
       frequency: parseInt(wateringFrequency),
@@ -364,12 +352,33 @@ const handleCustomFrequencySave = () => {
       }
       
       const data = await res.json();
-      console.log('Tower created successfully:', data);
+      console.log('Tower created successfully - Full response:', JSON.stringify(data, null, 2));
+      
+      // Extract tower ID from response
+      // API wrapper returns: { success: true, data: { status: true, statusCode: 200, message: "...", data: TowerDTO } }
+      // So tower ID is at: data.data.data.id
+      const towerId = data.data?.data?.id || data.data?.id || data.id || null;
+      console.log('Extracted tower ID:', towerId);
+      
+      if (!towerId) {
+        console.error('Tower ID not found in response. Response structure:', data);
+        toast.error('Tower created but could not retrieve ID for device assignment');
+        setIsSubmitting(false);
+        // Still redirect to manage towers after a delay
+        setTimeout(() => {
+          router.push('/homepage/managetower');
+        }, 2000);
+        return;
+      }
+      
       toast.dismiss();
       toast.success('Tower successfully created!');
-      setTimeout(() => {
-        router.push('/homepage/managetower');
-      }, 1000);
+      
+      // Store tower info and show device assignment modal
+      setCreatedTowerId(towerId);
+      setCreatedTowerName(towerName);
+      setIsSubmitting(false);
+      setShowDeviceModal(true);
     } catch (err) {
       console.error('Failed to create tower:', err);
       toast.dismiss();
@@ -462,7 +471,7 @@ const handleCustomFrequencySave = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8"
+              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
             >
               <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
                 <Leaf className="w-5 h-5 text-green-600" />
@@ -476,46 +485,6 @@ const handleCustomFrequencySave = () => {
                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                 required
               />
-            </motion.div>
-
-            {/* Device Selection */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8"
-            >
-              <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-green-600" />
-                Select Device (NodeMCU)
-              </h2>
-              <select
-                value={selectedDevice}
-                onChange={(e) => setSelectedDevice(e.target.value)}
-                disabled={devicesLoading}
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                required
-              >
-                <option value="">
-                  {devicesLoading ? 'Loading devices...' : devices.length === 0 ? 'No available devices' : 'Choose a device'}
-                </option>
-                {devices.map((device) => (
-                  <option key={device.id} value={device.id}>
-                    Device {device.id} - {device.macAddress} ({device.ipAddress})
-                  </option>
-                ))}
-              </select>
-              {selectedDevice && (
-                <div className="mt-4 p-3 bg-green-50 rounded-xl border border-green-200">
-                  <p className="text-sm text-gray-700">
-                    <strong className="text-green-700">Selected:</strong>{' '}
-                    {devices.find((d) => d.id === parseInt(selectedDevice))?.macAddress}
-                  </p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    IP: {devices.find((d) => d.id === parseInt(selectedDevice))?.ipAddress}
-                  </p>
-                </div>
-              )}
             </motion.div>
 
             {/* Plant */}
@@ -819,6 +788,20 @@ const handleCustomFrequencySave = () => {
           </div>
         </div>
       )}
+
+      {/* Device Assignment Modal */}
+      <DeviceAssignmentModal
+        isOpen={showDeviceModal}
+        onClose={(assigned) => {
+          setShowDeviceModal(false);
+          // Redirect to manage towers after modal closes
+          setTimeout(() => {
+            router.push('/homepage/managetower');
+          }, 500);
+        }}
+        towerId={createdTowerId}
+        towerName={createdTowerName}
+      />
     </div>
   );
 }
