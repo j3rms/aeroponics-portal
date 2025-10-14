@@ -22,6 +22,7 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const [userName, setUserName] = useState("User");
   const [loading, setLoading] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState(null);
 
   // Helper function to check if link is active
   const isActive = (path) => pathname === path;
@@ -44,7 +45,55 @@ export default function Sidebar() {
     };
 
     fetchCurrentUser();
+    fetchProfilePicture();
+
+    const onFocus = () => { fetchProfilePicture(); };
+    const onProfileUpdated = () => { fetchProfilePicture(); };
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('profile-picture-updated', onProfileUpdated);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('profile-picture-updated', onProfileUpdated);
+      if (avatarUrl) { try { URL.revokeObjectURL(avatarUrl); } catch {} }
+    };
   }, []);
+
+  const getAuthHeaders = () => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const fetchProfilePicture = async () => {
+    try {
+      const res = await fetch('/apis/profilePicture', {
+        method: 'GET',
+        headers: { ...getAuthHeaders() },
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        setAvatarUrl((prev) => {
+          if (prev) {
+            try { URL.revokeObjectURL(prev); } catch {}
+          }
+          return objectUrl;
+        });
+      } else if (res.status === 404) {
+        setAvatarUrl((prev) => {
+          if (prev) {
+            try { URL.revokeObjectURL(prev); } catch {}
+          }
+          return null;
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -120,9 +169,17 @@ export default function Sidebar() {
         {/* User Profile */}
         <div className="mx-4 my-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full ring-2 ring-white/20">
-              <User className="h-6 w-6 text-white" />
-            </div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Avatar"
+                className="w-12 h-12 rounded-full object-cover ring-2 ring-white/20"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full ring-2 ring-white/20">
+                <User className="h-6 w-6 text-white" />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-xs text-green-200 font-medium">Welcome back</p>
               {loading ? (

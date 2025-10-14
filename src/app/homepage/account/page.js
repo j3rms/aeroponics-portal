@@ -6,6 +6,7 @@ import { CheckCircle, KeyRound, Camera, User, UserCircle, Mail, Shield, Calendar
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
 
+
 export default function MyAccount() {
   const [user, setUser] = useState({
     fullName: '',
@@ -35,6 +36,47 @@ export default function MyAccount() {
   });
 
   const [successMessage, setSuccessMessage] = useState('');
+  const [showCropper, setShowCropper] = useState(false);
+  const [tempImageUrl, setTempImageUrl] = useState(null);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [cropBox, setCropBox] = useState({ x: 100, y: 100, size: 200 });
+  const [dragging, setDragging] = useState(null); // 'move' | 'resize-nw' | 'resize-ne' | 'resize-sw' | 'resize-se'
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, box: null });
+  const containerSize = { w: 400, h: 400 };
+
+  // Attach Authorization header from localStorage so API routes can fallback if server session is missing
+  const getAuthHeaders = () => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const fetchProfilePicture = async () => {
+    try {
+      const res = await fetch(`/apis/profilePicture`, { 
+        method: 'GET',
+        headers: { ...getAuthHeaders() },
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        setUser((prev) => {
+          if (prev.avatarUrl) {
+            try { URL.revokeObjectURL(prev.avatarUrl); } catch {}
+          }
+          return { ...prev, avatarUrl: objectUrl };
+        });
+      } else if (res.status === 404) {
+        // no profile picture set
+        setUser((prev) => ({ ...prev, avatarUrl: null }));
+      }
+    } catch (e) {
+      // ignore errors for avatar fetch
+    }
+  };
 
   // Fetch current user data
   useEffect(() => {
@@ -65,7 +107,14 @@ export default function MyAccount() {
       }
     };
 
-    fetchUserData();
+    fetchUserData().then(() => fetchProfilePicture());
+  }, []);
+
+  // Also refresh avatar when window regains focus
+  useEffect(() => {
+    const onFocus = () => { fetchProfilePicture(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   // Reset password error hint when new / confirm change
@@ -182,56 +231,208 @@ export default function MyAccount() {
       return;
     }
 
-    setUploadingAvatar(true);
-    
     try {
-      // Read file as base64
-      const reader = new FileReader();
-      reader.onload = () => {
-        setUser({ ...user, avatarUrl: reader.result });
-        setSuccessMessage('Profile photo updated successfully!');
-        setTimeout(() => setSuccessMessage(''), 3000);
+      const objectUrl = URL.createObjectURL(file);
+      setTempImageUrl(objectUrl);
+      setPendingFile(file);
+      setShowCropper(true);
+    } catch {}
+  };
+
+  const confirmCropAndUpload = async () => {
+    if (!tempImageUrl || !pendingFile) { setShowCropper(false); return; }
+    setUploadingAvatar(true);
+    try {
+      const img = document.createElement('img');
+      const load = new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+      img.src = tempImageUrl;
+      await load;
+      // Fit image into 400x400 container using object-contain to compute mapping
+      const iw = img.naturalWidth;
+      const ih = img.naturalHeight;
+      const cw = containerSize.w;
+      const ch = containerSize.h;
+      const scale = Math.min(cw / iw, ch / ih);
+      const displayedW = iw * scale;
+      const displayedH = ih * scale;
+      const offsetLeft = (cw - displayedW) / 2;
+      const offsetTop = (ch - displayedH) / 2;
+      // Clamp crop box to visible image area
+      const bx = Math.max(cropBox.x, offsetLeft);
+      const by = Math.max(cropBox.y, offsetTop);
+      const bRight = Math.min(cropBox.x + cropBox.size, offsetLeft + displayedW);
+      const bBottom = Math.min(cropBox.y + cropBox.size, offsetTop + displayedH);
+      const bSize = Math.max(0, Math.min(bRight - bx, bBottom - by));
+      if (bSize <= 0) throw new Error('Invalid crop area');
+      // Map to natural image coordinates
+      const sx = (bx - offsetLeft) / scale;
+      const sy = (by - offsetTop) / scale;
+      const sSize = bSize / scale;
+      // Render to 512x512 square
+      const outSize = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = outSize;
+      canvas.height = outSize;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, outSize, outSize);
+      ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, outSize, outSize);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92));
+      const formData = new FormData();
+      const croppedFile = new File([blob], pendingFile.name.replace(/\.[^/.]+$/, '') + '_cropped.jpg', { type: 'image/jpeg' });
+      formData.append('file', croppedFile);
+      const res = await fetch(`/apis/uploadProfilePicture`, { method: 'POST', headers: { ...getAuthHeaders() }, body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg = data?.message || 'Failed to upload image';
+        alert(msg);
         setUploadingAvatar(false);
-      };
-      reader.onerror = () => {
-        alert('Failed to read image file');
-        setUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
+        return;
+      }
+      if (tempImageUrl) { try { URL.revokeObjectURL(tempImageUrl); } catch {} }
+      setTempImageUrl(null);
+      setPendingFile(null);
+      setShowCropper(false);
+      await fetchProfilePicture();
+      try { window.dispatchEvent(new Event('profile-picture-updated')); } catch {}
+      setSuccessMessage('Profile photo updated successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      try { window.location.reload(); } catch {}
     } catch (error) {
-      console.error('Error uploading avatar:', error);
-      alert('Failed to upload image');
+      alert('Failed to process image');
+    } finally {
       setUploadingAvatar(false);
     }
   };
 
+  const cancelCrop = () => {
+    if (tempImageUrl) { try { URL.revokeObjectURL(tempImageUrl); } catch {} }
+    setTempImageUrl(null);
+    setPendingFile(null);
+    setShowCropper(false);
+  };
+
+  // Crop interactions
+  const onCropMouseDown = (e, mode) => {
+    e.preventDefault();
+    setDragging(mode);
+    setDragStart({ x: e.clientX, y: e.clientY, box: { ...cropBox } });
+  };
+  const onCropMouseMove = (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    if (dragging === 'move') {
+      let nx = dragStart.box.x + dx;
+      let ny = dragStart.box.y + dy;
+      nx = Math.max(0, Math.min(nx, containerSize.w - dragStart.box.size));
+      ny = Math.max(0, Math.min(ny, containerSize.h - dragStart.box.size));
+      setCropBox({ ...cropBox, x: nx, y: ny });
+    } else {
+      const minSize = 50;
+      let { x, y, size } = dragStart.box;
+      const applyBounds = () => {
+        // keep within container
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        if (x + size > containerSize.w) x = Math.max(0, containerSize.w - size);
+        if (y + size > containerSize.h) y = Math.max(0, containerSize.h - size);
+        size = Math.max(minSize, Math.min(size, containerSize.w, containerSize.h));
+      };
+      const diagResize = (signX, signY) => {
+        // increase or decrease size based on dominant movement while preserving square
+        const delta = Math.max(signX * dx, signY * dy);
+        let nsize = size + delta;
+        if (nsize < minSize) nsize = minSize;
+        // adjust origin when resizing from north or west
+        let nx = x, ny = y;
+        if (signX < 0) nx = x + (size - nsize);
+        if (signY < 0) ny = y + (size - nsize);
+        x = nx; y = ny; size = nsize; applyBounds();
+      };
+
+      switch (dragging) {
+        case 'resize-nw': diagResize(-1, -1); break;
+        case 'resize-ne': diagResize(1, -1); break;
+        case 'resize-sw': diagResize(-1, 1); break;
+        case 'resize-se': diagResize(1, 1); break;
+      }
+      setCropBox({ x, y, size });
+    }
+  };
+  const onCropMouseUp = () => setDragging(null);
+
+  // no-op for reverted crop box
+
+  // Ensure dragging works even if mouse leaves overlay
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (e) => onCropMouseMove(e);
+    const handleUp = () => setDragging(null);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [dragging]);
+
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
       {/* Sidebar */}
       <Sidebar />
 
-      <div className="flex flex-col flex-1 ml-64">
-        <main className="flex-1 max-w-7xl mx-auto w-full px-6 md:px-10 py-10 md:py-12">
+      <div className="flex flex-col flex-1">
+        {showCropper && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onMouseMove={onCropMouseMove} onMouseUp={onCropMouseUp}>
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+              <div className="text-lg font-semibold mb-4">Adjust Profile Picture</div>
+              <div className="mx-auto mb-4 bg-gray-100 flex items-center justify-center" style={{ width: `${containerSize.w}px`, height: `${containerSize.h}px`, position: 'relative', overflow: 'hidden' }}>
+                {tempImageUrl && (
+                  <img src={tempImageUrl} alt="crop" className="object-contain w-full h-full select-none" draggable={false} />
+                )}
+                {/* Crop box */}
+                <div
+                  style={{ left: `${cropBox.x}px`, top: `${cropBox.y}px`, width: `${cropBox.size}px`, height: `${cropBox.size}px` }}
+                  className="absolute border-2 border-green-500 bg-green-500/10 cursor-move"
+                  onMouseDown={(e) => onCropMouseDown(e, 'move')}
+                >
+                  {/* Corner handles */}
+                  <div onMouseDown={(e) => { e.stopPropagation(); onCropMouseDown(e, 'resize-nw'); }} className="absolute w-3 h-3 bg-green-600 -left-1.5 -top-1.5 rounded-sm cursor-nw-resize" />
+                  <div onMouseDown={(e) => { e.stopPropagation(); onCropMouseDown(e, 'resize-ne'); }} className="absolute w-3 h-3 bg-green-600 -right-1.5 -top-1.5 rounded-sm cursor-ne-resize" />
+                  <div onMouseDown={(e) => { e.stopPropagation(); onCropMouseDown(e, 'resize-sw'); }} className="absolute w-3 h-3 bg-green-600 -left-1.5 -bottom-1.5 rounded-sm cursor-sw-resize" />
+                  <div onMouseDown={(e) => { e.stopPropagation(); onCropMouseDown(e, 'resize-se'); }} className="absolute w-3 h-3 bg-green-600 -right-1.5 -bottom-1.5 rounded-sm cursor-se-resize" />
+                  {/* Corner-only resizing for even square */}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button onClick={cancelCrop} className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300">Cancel</button>
+                <button onClick={confirmCropAndUpload} disabled={uploadingAvatar} className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 disabled:opacity-60">Confirm</button>
+              </div>
+            </div>
+          </div>
+        )}
+        <main className="flex-1 max-w-3xl md:max-w-7xl mx-auto w-full px-4 md:px-10 py-8 md:py-12">
           {/* Header with decorative elements */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-12 relative overflow-visible"
+            className="mb-12 relative overflow-hidden"
           >
             {/* Decorative background */}
             <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
             <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
             
-            <div className="flex items-center gap-4 relative z-10">
+            <div className="flex flex-col items-center text-center md:flex-row md:items-center md:justify-start md:text-left gap-4 relative z-10">
               <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
                 <UserCircle className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
+                <h1 className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
                   My Account
                 </h1>
-                <p className="text-gray-600 text-lg mt-1">
+                <p className="text-gray-600 text-base md:text-lg mt-1">
                   Manage your account settings and preferences
                 </p>
               </div>

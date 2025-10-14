@@ -89,6 +89,19 @@ const getTextColor = (type, value, thresholds) => {
   }
 };
 
+// Ensure water level values are normalized to 0-100%
+const normalizeWaterLevel = (value) => {
+  if (value === null || value === undefined) return 0;
+  let n = Number(value);
+  if (Number.isNaN(n)) return 0;
+  // If API returns 0-1, convert to percent
+  if (n <= 1) n = n * 100;
+  // If API returns an oversized number (e.g., 1428571), scale down until <= 100
+  while (n > 100) n = n / 10;
+  // Clamp to [0, 100]
+  return Math.max(0, Math.min(100, n));
+};
+
 export default function Dashboard() {
   // State for sensor data
   const [sensorData, setSensorData] = useState({
@@ -127,7 +140,7 @@ export default function Dashboard() {
         setSensorData({
           phValue: result.data.phValue || 0,
           ppmValue: result.data.ppmValue || 0,
-          targetWaterLevel: result.data.waterLevel || 0,
+          targetWaterLevel: normalizeWaterLevel(result.data.waterLevel),
         });
         
         // Set plant name and thresholds for color coding
@@ -307,7 +320,7 @@ export default function Dashboard() {
   // Animate tank fill-up when data changes
   useEffect(() => {
     const timeout = setTimeout(() => {
-      setWaterLevel(sensorData.targetWaterLevel);
+      setWaterLevel(normalizeWaterLevel(sensorData.targetWaterLevel));
     }, 500);
     return () => clearTimeout(timeout);
   }, [sensorData.targetWaterLevel]);
@@ -356,46 +369,46 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 pl-64">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">
-        <main className="flex-1 max-w-7xl mx-auto w-full px-10 py-12">
+        <main className="flex-1 max-w-3xl md:max-w-7xl mx-auto w-full px-4 md:px-10 py-8 md:py-12">
           {/* Header with decorative elements */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-8 relative"
+            className="mb-8 relative overflow-hidden"
           >
             {/* Decorative background */}
             <div className="absolute -top-4 -left-4 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
             <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
             
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col items-center text-center md:flex-row md:items-center md:justify-between md:text-left gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <Activity className="w-8 h-8 text-white" />
+                <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Activity className="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent">
+                  <h1 className="text-2xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent">
                     Dashboard
                   </h1>
-                  <p className="text-gray-600 text-lg mt-1">
+                  <p className="text-gray-600 text-sm md:text-lg mt-1">
                     Real-time monitoring of your aeroponics system
                   </p>
                 </div>
               </div>
               
               {/* Tower Filter Dropdown */}
-              <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-2xl shadow-lg border border-green-100">
+              <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm px-3 md:px-6 py-2 md:py-3 rounded-2xl shadow-lg border border-green-100 w-full md:w-auto">
                 <label className="text-sm font-semibold text-gray-700">Filter:</label>
                 <select
                   value={selectedTowerFilter}
                   onChange={(e) => handleTowerFilterChange(e.target.value)}
-                  className="px-4 py-2 border-2 border-green-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 min-w-[200px] cursor-pointer hover:border-green-300 transition-colors"
+                  className="px-4 py-2 border-2 border-green-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 w-full md:min-w-[200px] cursor-pointer hover:border-green-300 transition-colors"
                 >
                   <option value="all">🌍 All Towers</option>
                   {towers.map((tower) => (
@@ -420,12 +433,12 @@ export default function Dashboard() {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 text-blue-800 px-6 py-4 rounded-2xl mb-8 flex items-center gap-3 shadow-sm"
+              className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 text-blue-800 px-4 md:px-6 py-3 md:py-4 rounded-2xl mb-8 flex items-center gap-3 shadow-sm"
             >
               <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                 <Info className="w-5 h-5 text-blue-600" />
               </div>
-              <p className="font-semibold text-base">Showing average data from all active towers</p>
+              <p className="font-semibold text-sm md:text-base">Showing average data from all active towers</p>
             </motion.div>
           )}
 
@@ -437,7 +450,7 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
               whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 overflow-hidden"
+              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-4 md:p-8 overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="relative">
@@ -451,7 +464,7 @@ export default function Dashboard() {
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className={`text-4xl font-bold ${selectedTowerFilter !== 'all' && plantThresholds ? getTextColor('ph', sensorData.phValue, plantThresholds) : 'bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent'}`}>
+                  <h2 className={`text-3xl md:text-4xl font-bold ${selectedTowerFilter !== 'all' && plantThresholds ? getTextColor('ph', sensorData.phValue, plantThresholds) : 'bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent'}`}>
                     {sensorData.phValue.toFixed(1)}
                   </h2>
                 )}
@@ -464,7 +477,7 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
               whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-blue-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 overflow-hidden"
+              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-blue-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-4 md:p-8 overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="relative">
@@ -478,8 +491,8 @@ export default function Dashboard() {
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className={`text-4xl font-bold ${selectedTowerFilter !== 'all' && plantThresholds ? getTextColor('ppm', sensorData.ppmValue, plantThresholds) : 'bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent'}`}>
-                    {sensorData.ppmValue.toFixed(0)} <span className="text-2xl">ppm</span>
+                  <h2 className={`text-3xl md:text-4xl font-bold ${selectedTowerFilter !== 'all' && plantThresholds ? getTextColor('ppm', sensorData.ppmValue, plantThresholds) : 'bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent'}`}>
+                    {sensorData.ppmValue.toFixed(0)} <span className="text-xl md:text-2xl">ppm</span>
                   </h2>
                 )}
               </div>
@@ -491,7 +504,7 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
               whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-cyan-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 overflow-hidden"
+              className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-cyan-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-4 md:p-8 overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-50/50 to-teal-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="relative">
@@ -505,8 +518,8 @@ export default function Dashboard() {
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className={`text-4xl font-bold ${selectedTowerFilter !== 'all' ? getTextColor('water', sensorData.targetWaterLevel, null) : 'bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent'}`}>
-                    {sensorData.targetWaterLevel.toFixed(0)}<span className="text-2xl">%</span>
+                  <h2 className={`text-3xl md:text-4xl font-bold ${selectedTowerFilter !== 'all' ? getTextColor('water', sensorData.targetWaterLevel, null) : 'bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent'}`}>
+                    {Math.round(Math.max(0, Math.min(100, sensorData.targetWaterLevel)))}<span className="text-xl md:text-2xl">%</span>
                   </h2>
                 )}
               </div>
@@ -656,7 +669,7 @@ export default function Dashboard() {
                   {/* Water Fill */}
                   <div
                     className="absolute bottom-0 left-0 w-full bg-cyan-500 transition-all duration-1000 ease-in-out overflow-hidden"
-                    style={{ height: `${waterLevel}%` }}
+                    style={{ height: `${Math.max(0, Math.min(100, waterLevel))}%` }}
                   >
                     {/* Waves */}
                     <svg
@@ -693,7 +706,7 @@ export default function Dashboard() {
 
                   {/* Percentage Label */}
                   <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-gray-700 z-10">
-                    {waterLevel}%
+                    {Math.round(waterLevel)}%
                   </div>
                   </div>
                 </div>

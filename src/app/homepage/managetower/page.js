@@ -221,24 +221,24 @@ export default function ManageTower() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
       {/* Sidebar */}
       <Sidebar />
 
-      <div className="flex flex-col flex-1 ml-64">
-        <main className="flex-1 max-w-7xl mx-auto w-full px-10 py-12">
+      <div className="flex flex-col flex-1">
+        <main className="flex-1 max-w-3xl md:max-w-none mx-auto md:mx-0 w-full px-4 md:px-10 py-8 md:py-12">
           {/* Header with decorative elements */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-12 relative overflow-visible"
+            className="mb-12 relative overflow-hidden"
           >
             {/* Decorative background */}
             <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
             <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
             
-            <div className="flex items-center justify-between relative z-10">
+            <div className="flex flex-col items-center text-center md:flex-row md:items-center md:justify-between md:text-left gap-4 relative z-10">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
                   <Building2 className="w-8 h-8 text-white" />
@@ -273,7 +273,7 @@ export default function ManageTower() {
               <p className="text-gray-600 text-lg">Loading towers...</p>
             </div>
           ) : towers.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="mt-8 md:mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
               {towers.map((tower, index) => (
                 <motion.div
                   key={tower.id}
@@ -281,7 +281,7 @@ export default function ManageTower() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                   whileHover={{ y: -8, scale: 1.02 }}
-                  className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl hover:border-green-200 p-6 flex flex-col items-center transition-all duration-300 overflow-hidden"
+                  className="group relative bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl hover:border-green-200 p-6 flex flex-col items-center transition-all duration-300 overflow-hidden w-full max-w-sm"
                 >
                   {/* Gradient overlay on hover */}
                   <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl"></div>

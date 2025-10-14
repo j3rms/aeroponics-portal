@@ -130,30 +130,30 @@ export default function Logs() {
   );
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
       <Sidebar />
-      <div className="flex flex-col flex-1 ml-64">
-        <main className="flex-1 max-w-7xl mx-auto w-full px-6 md:px-10 py-10 md:py-12">
+      <div className="flex flex-col flex-1">
+        <main className="flex-1 max-w-3xl md:max-w-none mx-auto md:mx-0 w-full px-4 md:px-10 py-8 md:py-12">
           {/* Header with decorative elements */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-12 relative overflow-visible"
+            className="mb-12 relative overflow-hidden"
           >
             {/* Decorative background */}
             <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
             <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
             
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <FileText className="w-8 h-8 text-white" />
+            <div className="flex flex-col items-center text-center md:flex-row md:items-center md:justify-start md:text-left gap-4 relative z-10">
+              <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <FileText className="w-6 h-6 md:w-8 md:h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
+                <h1 className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
                   Tower Data Logs
                 </h1>
-                <p className="text-gray-600 text-lg mt-1">
+                <p className="text-gray-600 text-sm md:text-lg mt-1">
                   View historical sensor data from your towers
                 </p>
               </div>
@@ -167,16 +167,17 @@ export default function Logs() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden w-full"
           >
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm md:text-base min-w-full">
+            <div className="overflow-x-auto px-2 md:px-0">
+              <table className="w-full text-xs md:text-base min-w-full table-fixed md:table-auto">
                 <thead className="bg-gradient-to-r from-green-600 to-emerald-600 text-white">
                   <tr>
-                    <th className="px-3 md:px-5 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                    <th className="px-2 md:px-5 py-3 md:py-5 text-center font-bold text-xs md:text-base">
                       <button
                         onClick={() => handleSort('id')}
                         className="flex items-center justify-center gap-1 mx-auto hover:bg-white/10 px-2 py-1 rounded-lg transition-colors"
                       >
-                        <span>#</span>
+                        <span className="md:hidden">ID</span>
+                        <span className="hidden md:inline">#</span>
                         {sortField === 'id' ? (
                           sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
                         ) : (
@@ -184,12 +185,13 @@ export default function Logs() {
                         )}
                       </button>
                     </th>
-                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                    <th className="px-2 md:px-6 py-3 md:py-5 text-center font-bold text-xs md:text-base">
                       <button
                         onClick={() => handleSort('tower')}
                         className="flex items-center justify-center gap-1 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
                       >
-                        <span>TOWER</span>
+                        <span className="md:hidden">TN</span>
+                        <span className="hidden md:inline">TOWER</span>
                         {sortField === 'tower' ? (
                           sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
                         ) : (
@@ -197,7 +199,7 @@ export default function Logs() {
                         )}
                       </button>
                     </th>
-                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                    <th className="px-2 md:px-6 py-3 md:py-5 text-center font-bold text-xs md:text-base">
                       <button
                         onClick={() => handleSort('ph')}
                         className="flex items-center justify-center gap-2 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
@@ -211,7 +213,7 @@ export default function Logs() {
                         )}
                       </button>
                     </th>
-                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                    <th className="px-2 md:px-6 py-3 md:py-5 text-center font-bold text-xs md:text-base">
                       <button
                         onClick={() => handleSort('ppm')}
                         className="flex items-center justify-center gap-2 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
@@ -225,13 +227,14 @@ export default function Logs() {
                         )}
                       </button>
                     </th>
-                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                    <th className="px-2 md:px-6 py-3 md:py-5 text-center font-bold text-xs md:text-base">
                       <button
                         onClick={() => handleSort('water')}
                         className="flex items-center justify-center gap-2 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
                       >
                         <Droplets className="w-4 h-4" />
-                        <span>WATER</span>
+                        <span className="md:hidden">WT</span>
+                        <span className="hidden md:inline">WATER</span>
                         {sortField === 'water' ? (
                           sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
                         ) : (
@@ -239,12 +242,13 @@ export default function Logs() {
                         )}
                       </button>
                     </th>
-                    <th className="px-4 md:px-6 py-4 md:py-5 text-center font-bold text-sm md:text-base">
+                    <th className="px-2 md:px-6 py-3 md:py-5 text-center font-bold text-xs md:text-base">
                       <button
                         onClick={() => handleSort('timestamp')}
                         className="flex items-center justify-center gap-1 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
                       >
-                        <span>TIMESTAMP</span>
+                        <span className="md:hidden">TS</span>
+                        <span className="hidden md:inline">TIMESTAMP</span>
                         {sortField === 'timestamp' ? (
                           sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
                         ) : (
@@ -280,18 +284,18 @@ export default function Logs() {
                         index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                       }`}
                     >
-                      <td className="px-3 md:px-5 py-3 md:py-4 text-center font-medium text-gray-500">
+                      <td className="px-2 md:px-5 py-2.5 md:py-4 text-center font-medium text-gray-500">
                         <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-xs font-semibold">
                           {data.id}
                         </span>
                       </td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-center">
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-green-100 text-green-800 font-semibold text-sm truncate max-w-[120px] md:max-w-none">
+                      <td className="px-2 md:px-6 py-2.5 md:py-4 text-center">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold text-xs md:text-sm truncate max-w-[100px] md:max-w-none">
                           {data.towerName}
                         </span>
                       </td>
-                      <td className={`px-4 md:px-6 py-3 md:py-4 text-center`}>
-                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-bold text-sm ${
+                      <td className={`px-2 md:px-6 py-2.5 md:py-4 text-center`}>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full font-bold text-xs md:text-sm ${
                           getStatusColor('ph', data.phLevel, data.towerName).includes('green') 
                             ? 'bg-green-100 text-green-700' 
                             : 'bg-red-100 text-red-700'
@@ -299,8 +303,8 @@ export default function Logs() {
                           {Number.isFinite(data.phLevel) ? data.phLevel.toFixed(1) : '—'}
                         </span>
                       </td>
-                      <td className={`px-4 md:px-6 py-3 md:py-4 text-center`}>
-                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-bold text-sm ${
+                      <td className={`px-2 md:px-6 py-2.5 md:py-4 text-center`}>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full font-bold text-xs md:text-sm ${
                           getStatusColor('ppm', data.ppmLevel, data.towerName).includes('green') 
                             ? 'bg-green-100 text-green-700' 
                             : getStatusColor('ppm', data.ppmLevel, data.towerName).includes('yellow')
@@ -310,8 +314,8 @@ export default function Logs() {
                           {Number.isFinite(data.ppmLevel) ? data.ppmLevel.toLocaleString() : '—'}
                         </span>
                       </td>
-                      <td className={`px-4 md:px-6 py-3 md:py-4 text-center`}>
-                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full font-bold text-sm ${
+                      <td className={`px-2 md:px-6 py-2.5 md:py-4 text-center`}>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full font-bold text-xs md:text-sm ${
                           getStatusColor('water', data.waterLevel, data.towerName).includes('green') 
                             ? 'bg-blue-100 text-blue-700' 
                             : 'bg-red-100 text-red-700'
@@ -319,17 +323,17 @@ export default function Logs() {
                           {Number.isFinite(data.waterLevel) ? `${data.waterLevel}%` : '—'}
                         </span>
                       </td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-center">
+                      <td className="px-2 md:px-6 py-2.5 md:py-4 text-center">
                         {data.time ? (
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-xs md:text-sm font-bold text-gray-800">
+                            <span className="text-[10px] md:text-sm font-bold text-gray-800">
                               {new Date(`2000-01-01T${data.time}`).toLocaleTimeString('en-US', {
                                 hour: 'numeric',
                                 minute: '2-digit',
                                 hour12: true
                               })}
                             </span>
-                            <span className="text-xs text-gray-500 font-medium">
+                            <span className="text-[10px] text-gray-500 font-medium">
                               {new Date(data.timestamp).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
