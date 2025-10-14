@@ -30,6 +30,65 @@ ChartJS.register(
   Legend
 );
 
+// Plant-specific thresholds
+const PLANT_THRESHOLDS = {
+  Cabbage: { ph: { min: 6.0, max: 6.8 }, ppm: { min: 1250, max: 2250 } },
+  Lettuce: { ph: { min: 6.0, max: 7.0 }, ppm: { min: 560, max: 840 } },
+  Basil: { ph: { min: 5.5, max: 6.5 }, ppm: { min: 700, max: 1120 } },
+  Kale: { ph: { min: 5.5, max: 6.8 }, ppm: { min: 2800, max: 3500 } },
+  Spinach: { ph: { min: 6.0, max: 7.0 }, ppm: { min: 1260, max: 1610 } },
+  Broccoli: { ph: { min: 6.0, max: 6.8 }, ppm: { min: 1960, max: 2450 } }
+};
+
+// Helper function to get text color based on value
+const getTextColor = (type, value, thresholds) => {
+  if (type === 'water') {
+    // Water: green if high (>= 50%), yellow if mid (30-49%), red if too low (< 30%)
+    if (value >= 50) return 'text-green-600'; // High - good
+    if (value >= 30) return 'text-yellow-600'; // Mid
+    return 'text-red-600'; // Too low
+  }
+
+  if (!thresholds) return 'text-gray-600';
+
+  switch (type) {
+    case 'ph':
+      const phMin = thresholds.ph.min;
+      const phMax = thresholds.ph.max;
+      const phRange = phMax - phMin;
+      
+      // Green if within ideal range (middle 60% of range)
+      if (value >= phMin + phRange * 0.2 && value <= phMax - phRange * 0.2) {
+        return 'text-green-600';
+      }
+      // Yellow if in acceptable range but not ideal
+      if (value >= phMin && value <= phMax) {
+        return 'text-yellow-600';
+      }
+      // Red if outside range
+      return 'text-red-600';
+      
+    case 'ppm':
+      const ppmMin = thresholds.ppm.min;
+      const ppmMax = thresholds.ppm.max;
+      const ppmRange = ppmMax - ppmMin;
+      
+      // Green if within ideal range (middle 60% of range)
+      if (value >= ppmMin + ppmRange * 0.2 && value <= ppmMax - ppmRange * 0.2) {
+        return 'text-green-600';
+      }
+      // Yellow if in acceptable range but not ideal
+      if (value >= ppmMin && value <= ppmMax) {
+        return 'text-yellow-600';
+      }
+      // Red if outside range
+      return 'text-red-600';
+      
+    default:
+      return 'text-gray-600';
+  }
+};
+
 export default function Dashboard() {
   // State for sensor data
   const [sensorData, setSensorData] = useState({
@@ -50,9 +109,11 @@ export default function Dashboard() {
   const [towersError, setTowersError] = useState(null);
   const [selectedTower, setSelectedTower] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [nutrientDepletion, setNutrientDepletion] = useState(null);
+  const [waterDepletion, setWaterDepletion] = useState(null);
   const [depletionLoading, setDepletionLoading] = useState(false);
   const [selectedTowerFilter, setSelectedTowerFilter] = useState('all');
+  const [currentPlantName, setCurrentPlantName] = useState(null);
+  const [plantThresholds, setPlantThresholds] = useState(null);
 
   // Fetch sensor data from backend (optionally filtered by tower)
   const fetchSensorData = async (towerId = null) => {
@@ -68,6 +129,40 @@ export default function Dashboard() {
           ppmValue: result.data.ppmValue || 0,
           targetWaterLevel: result.data.waterLevel || 0,
         });
+        
+        // Set plant name and thresholds for color coding
+        if (towerId) {
+          const tower = towers.find(t => t.id === parseInt(towerId));
+          if (tower?.plant) {
+            setCurrentPlantName(tower.plant.name);
+            setPlantThresholds({
+              ph: { 
+                min: tower.plant.min_ph_level, 
+                max: tower.plant.max_ph_level 
+              },
+              ppm: { 
+                min: tower.plant.min_ppm, 
+                max: tower.plant.max_ppm 
+              }
+            });
+          }
+        } else {
+          // For "All Towers", use the first tower's plant as reference
+          const firstTower = towers.find(t => t.plant?.name);
+          if (firstTower?.plant) {
+            setCurrentPlantName(firstTower.plant.name);
+            setPlantThresholds({
+              ph: { 
+                min: firstTower.plant.min_ph_level, 
+                max: firstTower.plant.max_ph_level 
+              },
+              ppm: { 
+                min: firstTower.plant.min_ppm, 
+                max: firstTower.plant.max_ppm 
+              }
+            });
+          }
+        }
       } else {
         setError('Failed to fetch sensor data');
       }
@@ -121,19 +216,19 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch nutrient depletion for a specific tower
-  const fetchNutrientDepletion = async (towerId) => {
+  // Fetch water depletion for a specific tower
+  const fetchWaterDepletion = async (towerId) => {
     try {
       setDepletionLoading(true);
-      const response = await fetch(`/apis/getNutrientDepletion?towerId=${towerId}`);
+      const response = await fetch(`/apis/getWaterDepletion?towerId=${towerId}`);
       const result = await response.json();
 
       if (result.success && result.data && result.data.data) {
-        setNutrientDepletion(result.data.data);
+        setWaterDepletion(result.data.data);
       }
     } catch (err) {
-      console.error('Error fetching nutrient depletion:', err);
-      setNutrientDepletion(null);
+      console.error('Error fetching water depletion:', err);
+      setWaterDepletion(null);
     } finally {
       setDepletionLoading(false);
     }
@@ -143,6 +238,41 @@ export default function Dashboard() {
   const handleTowerFilterChange = (towerId) => {
     setSelectedTowerFilter(towerId);
     const towerIdParam = towerId === 'all' ? null : towerId;
+    
+    // Set plant name and thresholds for color coding
+    if (towerId !== 'all') {
+      const tower = towers.find(t => t.id === parseInt(towerId));
+      if (tower?.plant) {
+        setCurrentPlantName(tower.plant.name);
+        setPlantThresholds({
+          ph: { 
+            min: tower.plant.min_ph_level, 
+            max: tower.plant.max_ph_level 
+          },
+          ppm: { 
+            min: tower.plant.min_ppm, 
+            max: tower.plant.max_ppm 
+          }
+        });
+      }
+    } else {
+      // For "All Towers", use the first tower's plant as reference
+      const firstTower = towers.find(t => t.plant?.name);
+      if (firstTower?.plant) {
+        setCurrentPlantName(firstTower.plant.name);
+        setPlantThresholds({
+          ph: { 
+            min: firstTower.plant.min_ph_level, 
+            max: firstTower.plant.max_ph_level 
+          },
+          ppm: { 
+            min: firstTower.plant.min_ppm, 
+            max: firstTower.plant.max_ppm 
+          }
+        });
+      }
+    }
+    
     fetchSensorData(towerIdParam);
     fetchHistoricalData(towerIdParam);
   };
@@ -153,6 +283,26 @@ export default function Dashboard() {
     fetchHistoricalData();
     fetchTowers();
   }, []);
+
+  // Set plant name and thresholds after towers are loaded
+  useEffect(() => {
+    if (towers.length > 0 && !currentPlantName) {
+      const firstTower = towers.find(t => t.plant?.name);
+      if (firstTower?.plant) {
+        setCurrentPlantName(firstTower.plant.name);
+        setPlantThresholds({
+          ph: { 
+            min: firstTower.plant.min_ph_level, 
+            max: firstTower.plant.max_ph_level 
+          },
+          ppm: { 
+            min: firstTower.plant.min_ppm, 
+            max: firstTower.plant.max_ppm 
+          }
+        });
+      }
+    }
+  }, [towers]);
 
   // Animate tank fill-up when data changes
   useEffect(() => {
@@ -170,7 +320,7 @@ export default function Dashboard() {
       fetchHistoricalData(towerIdParam);
       fetchTowers();
       if (selectedTower) {
-        fetchNutrientDepletion(selectedTower.id);
+        fetchWaterDepletion(selectedTower.id);
       }
     }, 30000); // 30 seconds
 
@@ -181,15 +331,15 @@ export default function Dashboard() {
   const handleTowerClick = (tower) => {
     setSelectedTower(tower);
     setShowModal(true);
-    setNutrientDepletion(null);
-    fetchNutrientDepletion(tower.id);
+    setWaterDepletion(null);
+    fetchWaterDepletion(tower.id);
   };
 
   // Close modal
   const closeModal = () => {
     setShowModal(false);
     setSelectedTower(null);
-    setNutrientDepletion(null);
+    setWaterDepletion(null);
   };
 
   // Format date helper
@@ -301,7 +451,7 @@ export default function Dashboard() {
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  <h2 className={`text-4xl font-bold ${selectedTowerFilter !== 'all' && plantThresholds ? getTextColor('ph', sensorData.phValue, plantThresholds) : 'bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent'}`}>
                     {sensorData.phValue.toFixed(1)}
                   </h2>
                 )}
@@ -328,7 +478,7 @@ export default function Dashboard() {
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                  <h2 className={`text-4xl font-bold ${selectedTowerFilter !== 'all' && plantThresholds ? getTextColor('ppm', sensorData.ppmValue, plantThresholds) : 'bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent'}`}>
                     {sensorData.ppmValue.toFixed(0)} <span className="text-2xl">ppm</span>
                   </h2>
                 )}
@@ -355,7 +505,7 @@ export default function Dashboard() {
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className="text-4xl font-bold bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
+                  <h2 className={`text-4xl font-bold ${selectedTowerFilter !== 'all' ? getTextColor('water', sensorData.targetWaterLevel, null) : 'bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent'}`}>
                     {sensorData.targetWaterLevel.toFixed(0)}<span className="text-2xl">%</span>
                   </h2>
                 )}
@@ -764,9 +914,9 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Nutrient Depletion Analytics */}
+              {/* Water Depletion Analytics */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md p-6">
-                <h3 className="font-semibold text-lg text-gray-800 mb-4">Nutrient Depletion Analysis</h3>
+                <h3 className="font-semibold text-lg text-gray-800 mb-4">Water Depletion Analysis</h3>
                 
                 {depletionLoading ? (
                   <div className="space-y-4">
@@ -774,39 +924,26 @@ export default function Dashboard() {
                     <div className="h-4 bg-gray-200 animate-pulse rounded w-3/4"></div>
                     <div className="h-4 bg-gray-200 animate-pulse rounded w-1/2"></div>
                   </div>
-                ) : nutrientDepletion ? (
+                ) : waterDepletion ? (
                   <div className="space-y-4">
                     {/* Depletion Timeline - Most Prominent */}
                     <div className={`p-6 rounded-xl border-2 ${
-                      nutrientDepletion.overallStatus === 'CRITICAL' ? 'bg-red-50 border-red-400' :
-                      nutrientDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-50 border-yellow-400' :
+                      waterDepletion.overallStatus === 'CRITICAL' ? 'bg-red-50 border-red-400' :
+                      waterDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-50 border-yellow-400' :
                       'bg-green-50 border-green-400'
                     }`}>
                       <div className="text-center">
-                        <p className="text-sm font-medium text-gray-600 mb-2">Nutrients Will Be Depleted In</p>
-                        <div className="flex items-center justify-center gap-8">
+                        <p className="text-sm font-medium text-gray-600 mb-2">Water Will Reach Critical Level In</p>
+                        <div className="flex items-center justify-center">
                           <div>
-                            <p className="text-xs text-gray-500 mb-1">pH Critical In</p>
-                            <p className={`text-4xl font-bold ${
-                              nutrientDepletion.daysUntilPhCritical <= 3 ? 'text-red-600' :
-                              nutrientDepletion.daysUntilPhCritical <= 7 ? 'text-yellow-600' :
+                            <p className={`text-5xl font-bold ${
+                              waterDepletion.daysUntilCritical <= 3 ? 'text-red-600' :
+                              waterDepletion.daysUntilCritical <= 7 ? 'text-yellow-600' :
                               'text-green-600'
                             }`}>
-                              {nutrientDepletion.daysUntilPhCritical > 99 ? '99+' : nutrientDepletion.daysUntilPhCritical}
+                              {waterDepletion.daysUntilCritical > 99 ? '99+' : waterDepletion.daysUntilCritical}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">days</p>
-                          </div>
-                          <div className="h-16 w-px bg-gray-300"></div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">PPM Critical In</p>
-                            <p className={`text-4xl font-bold ${
-                              nutrientDepletion.daysUntilPpmCritical <= 3 ? 'text-red-600' :
-                              nutrientDepletion.daysUntilPpmCritical <= 7 ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                              {nutrientDepletion.daysUntilPpmCritical > 99 ? '99+' : nutrientDepletion.daysUntilPpmCritical}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">days</p>
+                            <p className="text-lg text-gray-500 mt-2">days</p>
                           </div>
                         </div>
                       </div>
@@ -814,55 +951,42 @@ export default function Dashboard() {
 
                     {/* Overall Status */}
                     <div className={`p-4 rounded-lg border ${
-                      nutrientDepletion.overallStatus === 'EXCELLENT' ? 'bg-green-50 border-green-300' :
-                      nutrientDepletion.overallStatus === 'GOOD' ? 'bg-blue-50 border-blue-300' :
-                      nutrientDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-50 border-yellow-300' :
-                      nutrientDepletion.overallStatus === 'CRITICAL' ? 'bg-red-50 border-red-300' :
+                      waterDepletion.overallStatus === 'EXCELLENT' ? 'bg-green-50 border-green-300' :
+                      waterDepletion.overallStatus === 'GOOD' ? 'bg-blue-50 border-blue-300' :
+                      waterDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-50 border-yellow-300' :
+                      waterDepletion.overallStatus === 'CRITICAL' ? 'bg-red-50 border-red-300' :
                       'bg-gray-50 border-gray-300'
                     }`}>
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-gray-800">Overall Status</span>
                         <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          nutrientDepletion.overallStatus === 'EXCELLENT' ? 'bg-green-100 text-green-800' :
-                          nutrientDepletion.overallStatus === 'GOOD' ? 'bg-blue-100 text-blue-800' :
-                          nutrientDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-100 text-yellow-800' :
-                          nutrientDepletion.overallStatus === 'CRITICAL' ? 'bg-red-100 text-red-800' :
+                          waterDepletion.overallStatus === 'EXCELLENT' ? 'bg-green-100 text-green-800' :
+                          waterDepletion.overallStatus === 'GOOD' ? 'bg-blue-100 text-blue-800' :
+                          waterDepletion.overallStatus === 'ATTENTION_NEEDED' ? 'bg-yellow-100 text-yellow-800' :
+                          waterDepletion.overallStatus === 'CRITICAL' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {nutrientDepletion.overallStatus.replace('_', ' ')}
+                          {waterDepletion.overallStatus.replace('_', ' ')}
                         </span>
                       </div>
                     </div>
 
-                    {/* Current Levels */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 mb-1">Current pH</p>
-                        <p className="text-2xl font-bold text-green-700">{nutrientDepletion.currentPh}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Optimal: {nutrientDepletion.optimalPhMin} - {nutrientDepletion.optimalPhMax}
-                        </p>
-                        <span className={`inline-block mt-2 px-2 py-1 rounded text-xs font-semibold ${
-                          nutrientDepletion.phStatus === 'OPTIMAL' ? 'bg-green-100 text-green-800' :
-                          nutrientDepletion.phStatus === 'WARNING' ? 'bg-yellow-100 text-yellow-800' :
+                    {/* Current Water Level */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">Current Water Level</p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-3xl font-bold text-cyan-700">{waterDepletion.currentWaterLevel}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Approximately {waterDepletion.currentWaterPercentage}%
+                          </p>
+                        </div>
+                        <span className={`px-3 py-2 rounded-lg text-sm font-semibold ${
+                          waterDepletion.waterStatus === 'OPTIMAL' ? 'bg-green-100 text-green-800' :
+                          waterDepletion.waterStatus === 'WARNING' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-red-100 text-red-800'
                         }`}>
-                          {nutrientDepletion.phStatus}
-                        </span>
-                      </div>
-
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 mb-1">Current PPM</p>
-                        <p className="text-2xl font-bold text-blue-700">{nutrientDepletion.currentPpm}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Optimal: {nutrientDepletion.optimalPpmMin} - {nutrientDepletion.optimalPpmMax}
-                        </p>
-                        <span className={`inline-block mt-2 px-2 py-1 rounded text-xs font-semibold ${
-                          nutrientDepletion.ppmStatus === 'OPTIMAL' ? 'bg-green-100 text-green-800' :
-                          nutrientDepletion.ppmStatus === 'WARNING' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {nutrientDepletion.ppmStatus}
+                          {waterDepletion.waterStatus}
                         </span>
                       </div>
                     </div>
@@ -870,55 +994,52 @@ export default function Dashboard() {
                     {/* Depletion Rates */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 mb-1">pH Change Rate</p>
+                        <p className="text-xs text-gray-500 mb-1">Water Depletion Rate</p>
                         <p className={`text-lg font-bold ${
-                          nutrientDepletion.phDepletionRate > 0 ? 'text-orange-600' : 
-                          nutrientDepletion.phDepletionRate < 0 ? 'text-blue-600' : 'text-gray-600'
+                          waterDepletion.waterDepletionRate < 0 ? 'text-red-600' : 
+                          waterDepletion.waterDepletionRate > 0 ? 'text-blue-600' : 'text-gray-600'
                         }`}>
-                          {nutrientDepletion.phDepletionRate > 0 ? '+' : ''}{nutrientDepletion.phDepletionRate}/day
+                          {waterDepletion.waterDepletionRate > 0 ? '+' : ''}{waterDepletion.waterDepletionRate}% per day
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          Critical in: {nutrientDepletion.daysUntilPhCritical > 99 ? '99+' : nutrientDepletion.daysUntilPhCritical} days
+                          {waterDepletion.waterDepletionRate < 0 ? 'Decreasing' : waterDepletion.waterDepletionRate > 0 ? 'Increasing' : 'Stable'}
                         </p>
                       </div>
 
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 mb-1">PPM Change Rate</p>
-                        <p className={`text-lg font-bold ${
-                          nutrientDepletion.ppmDepletionRate > 0 ? 'text-orange-600' : 
-                          nutrientDepletion.ppmDepletionRate < 0 ? 'text-blue-600' : 'text-gray-600'
-                        }`}>
-                          {nutrientDepletion.ppmDepletionRate > 0 ? '+' : ''}{nutrientDepletion.ppmDepletionRate}/day
+                        <p className="text-xs text-gray-500 mb-1">Average Change</p>
+                        <p className="text-lg font-bold text-gray-700">
+                          {waterDepletion.avgWaterChange > 0 ? '+' : ''}{waterDepletion.avgWaterChange}%
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          Critical in: {nutrientDepletion.daysUntilPpmCritical > 99 ? '99+' : nutrientDepletion.daysUntilPpmCritical} days
+                          Per reading ({waterDepletion.totalReadings} readings analyzed)
                         </p>
                       </div>
                     </div>
 
                     {/* Recommendation */}
-                    {nutrientDepletion.recommendation && (
+                    {waterDepletion.recommendation && (
                       <div className={`p-4 rounded-lg border ${
-                        nutrientDepletion.needsImmediateAction 
+                        waterDepletion.needsImmediateAction 
                           ? 'bg-red-50 border-red-300' 
                           : 'bg-blue-50 border-blue-300'
                       }`}>
                         <p className={`text-sm font-semibold mb-2 ${
-                          nutrientDepletion.needsImmediateAction ? 'text-red-800' : 'text-blue-800'
+                          waterDepletion.needsImmediateAction ? 'text-red-800' : 'text-blue-800'
                         }`}>
-                          {nutrientDepletion.needsImmediateAction ? '⚠️ Action Required' : '💡 Recommendation'}
+                          {waterDepletion.needsImmediateAction ? '⚠️ Action Required' : '💡 Recommendation'}
                         </p>
                         <p className={`text-sm ${
-                          nutrientDepletion.needsImmediateAction ? 'text-red-700' : 'text-blue-700'
+                          waterDepletion.needsImmediateAction ? 'text-red-700' : 'text-blue-700'
                         }`}>
-                          {nutrientDepletion.recommendation}
+                          {waterDepletion.recommendation}
                         </p>
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
-                    <p>No nutrient data available</p>
+                    <p>No water level data available</p>
                     <p className="text-sm mt-2">Sensor readings are required for analysis</p>
                   </div>
                 )}
