@@ -226,7 +226,7 @@ export default function ManageTower() {
       <Sidebar />
 
       <div className="flex flex-col flex-1">
-        <main className="flex-1 max-w-3xl md:max-w-none mx-auto md:mx-0 w-full px-4 md:px-10 py-8 md:py-12">
+        <main className="flex-1 max-w-3xl md:max-w-7xl mx-auto w-full px-4 md:px-10 py-8 md:py-12">
           {/* Header with decorative elements */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -288,7 +288,7 @@ export default function ManageTower() {
                   
                   <div className="relative w-full flex flex-col items-center">
                     {/* Tower Image */}
-                    <div className="w-32 h-32 mb-5 group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-28 h-28 mb-5 group-hover:scale-110 transition-transform duration-300">
                       <img
                         src={tower.image || "/images/tower.png"}
                         alt={tower.name}
@@ -297,15 +297,15 @@ export default function ManageTower() {
                     </div>
 
                     {/* Tower Name */}
-                    <p className="text-lg font-bold text-gray-800 mb-2 group-hover:text-green-700 transition-colors">{tower.name}</p>
+                    <p className="text-lg font-bold text-gray-800 mb-3 group-hover:text-green-700 transition-colors">{tower.name}</p>
                     
                     {/* Plant Name */}
                     {tower.plant && (
-                      <p className="text-sm text-gray-600 font-medium mb-3">{tower.plant.name}</p>
+                      <p className="text-sm text-gray-600 font-medium mb-4">{tower.plant.name}</p>
                     )}
 
                     {/* Status Badge */}
-                    <div className={`mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${
+                    <div className={`mb-5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
                       tower.status ? 'bg-green-100' : 'bg-red-100'
                     }`}>
                       <div className={`w-2 h-2 rounded-full ${

@@ -127,6 +127,8 @@ export default function Dashboard() {
   const [selectedTowerFilter, setSelectedTowerFilter] = useState('all');
   const [currentPlantName, setCurrentPlantName] = useState(null);
   const [plantThresholds, setPlantThresholds] = useState(null);
+  const [activeTowerFilter, setActiveTowerFilter] = useState('all');
+  const [filteredTowers, setFilteredTowers] = useState([]);
 
   // Fetch sensor data from backend (optionally filtered by tower)
   const fetchSensorData = async (towerId = null) => {
@@ -290,6 +292,20 @@ export default function Dashboard() {
     fetchHistoricalData(towerIdParam);
   };
 
+  // Handle active tower filter change
+  const handleActiveTowerFilterChange = (filterValue) => {
+    setActiveTowerFilter(filterValue);
+  };
+
+  // Get unique plant names for filter options
+  const getUniquePlantNames = () => {
+    const plantNames = towers
+      .map(tower => tower.plant?.name)
+      .filter(name => name)
+      .filter((name, index, arr) => arr.indexOf(name) === index);
+    return plantNames;
+  };
+
   // Initial data fetch
   useEffect(() => {
     fetchSensorData();
@@ -316,6 +332,58 @@ export default function Dashboard() {
       }
     }
   }, [towers]);
+
+  // Filter towers based on active tower filter
+  useEffect(() => {
+    if (towers.length === 0) {
+      setFilteredTowers([]);
+      return;
+    }
+
+    let filtered = [...towers];
+
+    switch (activeTowerFilter) {
+      case 'all':
+        // Show all towers
+        break;
+      case 'thisWeek':
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        filtered = towers.filter(tower => {
+          if (!tower.startDate) return false;
+          const startDate = new Date(tower.startDate);
+          return startDate >= oneWeekAgo;
+        });
+        break;
+      case 'thisMonth':
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        filtered = towers.filter(tower => {
+          if (!tower.startDate) return false;
+          const startDate = new Date(tower.startDate);
+          return startDate >= oneMonthAgo;
+        });
+        break;
+      case 'last3Months':
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        filtered = towers.filter(tower => {
+          if (!tower.startDate) return false;
+          const startDate = new Date(tower.startDate);
+          return startDate >= threeMonthsAgo;
+        });
+        break;
+      default:
+        // Check if it's a plant filter
+        if (activeTowerFilter.startsWith('plant_')) {
+          const plantName = activeTowerFilter.replace('plant_', '');
+          filtered = towers.filter(tower => tower.plant?.name === plantName);
+        }
+        break;
+    }
+
+    setFilteredTowers(filtered);
+  }, [towers, activeTowerFilter]);
 
   // Animate tank fill-up when data changes
   useEffect(() => {
@@ -410,7 +478,7 @@ export default function Dashboard() {
                   onChange={(e) => handleTowerFilterChange(e.target.value)}
                   className="px-4 py-2 border-2 border-green-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 w-full md:min-w-[200px] cursor-pointer hover:border-green-300 transition-colors"
                 >
-                  <option value="all">🌍 All Towers</option>
+                  <option value="all">🕒 Most Recent</option>
                   {towers.map((tower) => (
                     <option key={tower.id} value={tower.id}>
                       🏢 {tower.name} - {tower.plant?.name || 'No Plant'}
@@ -438,7 +506,7 @@ export default function Dashboard() {
               <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                 <Info className="w-5 h-5 text-blue-600" />
               </div>
-              <p className="font-semibold text-sm md:text-base">Showing average data from all active towers</p>
+              <p className="font-semibold text-sm md:text-base">Showing most recent data from all active towers</p>
             </motion.div>
           )}
 
@@ -460,7 +528,7 @@ export default function Dashboard() {
                   </div>
                   <span className="text-xs font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">Live</span>
                 </div>
-                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Average pH Level' : 'pH Level'}</p>
+                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Most Recent pH Level' : 'pH Level'}</p>
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
@@ -487,7 +555,7 @@ export default function Dashboard() {
                   </div>
                   <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Live</span>
                 </div>
-                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Average PPM' : 'PPM Level'}</p>
+                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Most Recent PPM' : 'PPM Level'}</p>
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
@@ -514,7 +582,7 @@ export default function Dashboard() {
                   </div>
                   <span className="text-xs font-semibold text-cyan-600 bg-cyan-100 px-3 py-1 rounded-full">Live</span>
                 </div>
-                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Average Water Level' : 'Water Level'}</p>
+                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Most Recent Water Level' : 'Water Level'}</p>
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
@@ -720,13 +788,35 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.5 }}
           >
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Leaf className="w-6 h-6 text-white" />
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Leaf className="w-6 h-6 text-white" />
+                </div>
+                <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                  Active Towers
+                </h2>
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                Active Towers
-              </h2>
+              
+              {/* Active Tower Filter Dropdown */}
+              <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm px-3 md:px-6 py-2 md:py-3 rounded-2xl shadow-lg border border-green-100 w-full md:w-auto">
+                <label className="text-sm font-semibold text-gray-700">Filter:</label>
+                <select
+                  value={activeTowerFilter}
+                  onChange={(e) => handleActiveTowerFilterChange(e.target.value)}
+                  className="px-4 py-2 border-2 border-green-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 w-full md:min-w-[200px] cursor-pointer hover:border-green-300 transition-colors"
+                >
+                  <option value="all">🌍 All Towers</option>
+                  <option value="thisWeek">📅 This Week</option>
+                  <option value="thisMonth">📅 This Month</option>
+                  <option value="last3Months">📅 Last 3 Months</option>
+                  {getUniquePlantNames().map((plantName) => (
+                    <option key={plantName} value={`plant_${plantName}`}>
+                      🌱 {plantName} Only
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             
             {towersError && (
@@ -749,9 +839,9 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-            ) : towers.length > 0 ? (
+            ) : filteredTowers.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {towers.map((tower, index) => (
+                {filteredTowers.map((tower, index) => (
                   <motion.div
                     key={tower.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -800,8 +890,12 @@ export default function Dashboard() {
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Leaf className="w-10 h-10 text-gray-400" />
                 </div>
-                <p className="text-lg font-semibold text-gray-700 mb-2">No active towers found</p>
-                <p className="text-sm text-gray-500">Add a tower to get started with monitoring</p>
+                <p className="text-lg font-semibold text-gray-700 mb-2">
+                  {towers.length === 0 ? 'No active towers found' : 'No towers match the selected filter'}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {towers.length === 0 ? 'Add a tower to get started with monitoring' : 'Try selecting a different filter option'}
+                </p>
               </motion.div>
             )}
           </motion.section>
