@@ -93,24 +93,31 @@ export async function GET(request) {
           };
         }
       } else {
-        // All towers - get the most recent entry from all towers
-        if (data.data.length > 0) {
-          // Sort by timestamp/datetime to get the most recent entry
-          const sortedData = data.data.sort((a, b) => {
-            const timeA = new Date(a.datetime || a.time || 0);
-            const timeB = new Date(b.datetime || b.time || 0);
-            return timeB - timeA; // Most recent first
-          });
-          
-          const mostRecentLog = sortedData[0];
+        // All towers - calculate averages from latest entry per tower
+        const towerMap = new Map();
+        
+        // Get the latest entry for each tower
+        data.data.forEach(log => {
+          if (log.tower?.id) {
+            towerMap.set(log.tower.id, log);
+          }
+        });
+        
+        // Calculate averages from latest entries
+        const latestEntries = Array.from(towerMap.values());
+        
+        if (latestEntries.length > 0) {
+          const avgPh = latestEntries.reduce((sum, log) => sum + parseFloat(log.ph_level), 0) / latestEntries.length;
+          const avgPpm = latestEntries.reduce((sum, log) => sum + parseFloat(log.ppm), 0) / latestEntries.length;
+          const avgWaterLevel = latestEntries.reduce((sum, log) => sum + (waterLevelMap[log.water_level] || 0), 0) / latestEntries.length;
           
           sensorData = {
-            phValue: parseFloat(mostRecentLog.ph_level),
-            ppmValue: parseFloat(mostRecentLog.ppm),
-            waterLevel: waterLevelMap[mostRecentLog.water_level] || 0,
-            timestamp: mostRecentLog.datetime || mostRecentLog.time,
-            towerId: mostRecentLog.tower?.id || null,
-            towerName: mostRecentLog.tower?.name || 'Most Recent Reading'
+            phValue: avgPh,
+            ppmValue: avgPpm,
+            waterLevel: avgWaterLevel,
+            timestamp: latestEntries[latestEntries.length - 1].time,
+            towerId: null,
+            towerName: `Average of ${latestEntries.length} towers`
           };
         }
       }

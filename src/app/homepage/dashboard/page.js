@@ -124,7 +124,7 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [waterDepletion, setWaterDepletion] = useState(null);
   const [depletionLoading, setDepletionLoading] = useState(false);
-  const [selectedTowerFilter, setSelectedTowerFilter] = useState('all');
+  const [selectedTowerFilter, setSelectedTowerFilter] = useState(''); // Will be set to most recent tower
   const [currentPlantName, setCurrentPlantName] = useState(null);
   const [plantThresholds, setPlantThresholds] = useState(null);
   const [activeTowerFilter, setActiveTowerFilter] = useState('all');
@@ -313,25 +313,63 @@ export default function Dashboard() {
     fetchTowers();
   }, []);
 
-  // Set plant name and thresholds after towers are loaded
+  // Set most recent tower as default and plant thresholds after towers are loaded
   useEffect(() => {
-    if (towers.length > 0 && !currentPlantName) {
-      const firstTower = towers.find(t => t.plant?.name);
-      if (firstTower?.plant) {
-        setCurrentPlantName(firstTower.plant.name);
-        setPlantThresholds({
-          ph: { 
-            min: firstTower.plant.min_ph_level, 
-            max: firstTower.plant.max_ph_level 
-          },
-          ppm: { 
-            min: firstTower.plant.min_ppm, 
-            max: firstTower.plant.max_ppm 
-          }
-        });
+    if (towers.length > 0 && !selectedTowerFilter) {
+      // Find the most recently added tower based on startDate
+      const sortedTowers = [...towers].sort((a, b) => {
+        const dateA = new Date(a.startDate || 0);
+        const dateB = new Date(b.startDate || 0);
+        return dateB - dateA; // Most recent first
+      });
+      
+      const mostRecentTower = sortedTowers[0];
+      
+      if (mostRecentTower) {
+        // Set the most recent tower as default
+        setSelectedTowerFilter(mostRecentTower.id.toString());
+        
+        // Set plant thresholds for the most recent tower
+        if (mostRecentTower.plant) {
+          setCurrentPlantName(mostRecentTower.plant.name);
+          setPlantThresholds({
+            ph: { 
+              min: mostRecentTower.plant.min_ph_level, 
+              max: mostRecentTower.plant.max_ph_level 
+            },
+            ppm: { 
+              min: mostRecentTower.plant.min_ppm, 
+              max: mostRecentTower.plant.max_ppm 
+            }
+          });
+        }
+        
+        // Fetch data for the most recent tower
+        fetchSensorData(mostRecentTower.id.toString());
+        fetchHistoricalData(mostRecentTower.id.toString());
       }
     }
-  }, [towers]);
+  }, [towers, selectedTowerFilter]);
+
+  // Get available months from towers
+  const getAvailableMonths = () => {
+    const months = new Set();
+    towers.forEach(tower => {
+      if (tower.startDate) {
+        const date = new Date(tower.startDate);
+        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        months.add(monthYear);
+      }
+    });
+    return Array.from(months).sort().reverse(); // Most recent months first
+  };
+
+  // Format month for display
+  const formatMonthDisplay = (monthYear) => {
+    const [year, month] = monthYear.split('-');
+    const date = new Date(year, month - 1);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  };
 
   // Filter towers based on active tower filter
   useEffect(() => {
@@ -346,38 +384,23 @@ export default function Dashboard() {
       case 'all':
         // Show all towers
         break;
-      case 'thisWeek':
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        filtered = towers.filter(tower => {
-          if (!tower.startDate) return false;
-          const startDate = new Date(tower.startDate);
-          return startDate >= oneWeekAgo;
-        });
-        break;
-      case 'thisMonth':
-        const oneMonthAgo = new Date();
-        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-        filtered = towers.filter(tower => {
-          if (!tower.startDate) return false;
-          const startDate = new Date(tower.startDate);
-          return startDate >= oneMonthAgo;
-        });
-        break;
-      case 'last3Months':
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-        filtered = towers.filter(tower => {
-          if (!tower.startDate) return false;
-          const startDate = new Date(tower.startDate);
-          return startDate >= threeMonthsAgo;
-        });
-        break;
       default:
         // Check if it's a plant filter
         if (activeTowerFilter.startsWith('plant_')) {
           const plantName = activeTowerFilter.replace('plant_', '');
           filtered = towers.filter(tower => tower.plant?.name === plantName);
+        }
+        // Check if it's a month filter
+        else if (activeTowerFilter.startsWith('month_')) {
+          const monthYear = activeTowerFilter.replace('month_', '');
+          const [year, month] = monthYear.split('-');
+          filtered = towers.filter(tower => {
+            if (!tower.startDate) return false;
+            const startDate = new Date(tower.startDate);
+            const towerMonth = String(startDate.getMonth() + 1).padStart(2, '0');
+            const towerYear = startDate.getFullYear().toString();
+            return towerYear === year && towerMonth === month;
+          });
         }
         break;
     }
@@ -478,7 +501,6 @@ export default function Dashboard() {
                   onChange={(e) => handleTowerFilterChange(e.target.value)}
                   className="px-4 py-2 border-2 border-green-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 w-full md:min-w-[200px] cursor-pointer hover:border-green-300 transition-colors"
                 >
-                  <option value="all">🕒 Most Recent</option>
                   {towers.map((tower) => (
                     <option key={tower.id} value={tower.id}>
                       🏢 {tower.name} - {tower.plant?.name || 'No Plant'}
@@ -496,8 +518,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Average Data Indicator */}
-          {selectedTowerFilter === 'all' && (
+          {/* Current Tower Indicator */}
+          {selectedTowerFilter && selectedTowerFilter !== 'all' && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -506,7 +528,12 @@ export default function Dashboard() {
               <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                 <Info className="w-5 h-5 text-blue-600" />
               </div>
-              <p className="font-semibold text-sm md:text-base">Showing most recent data from all active towers</p>
+              <p className="font-semibold text-sm md:text-base">
+                Showing data from: {towers.find(t => t.id.toString() === selectedTowerFilter)?.name || 'Selected Tower'}
+                {towers.find(t => t.id.toString() === selectedTowerFilter)?.plant?.name && 
+                  ` (${towers.find(t => t.id.toString() === selectedTowerFilter)?.plant?.name})`
+                }
+              </p>
             </motion.div>
           )}
 
@@ -528,11 +555,11 @@ export default function Dashboard() {
                   </div>
                   <span className="text-xs font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full">Live</span>
                 </div>
-                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Most Recent pH Level' : 'pH Level'}</p>
+                <p className="text-gray-600 font-medium mb-2">pH Level</p>
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className={`text-3xl md:text-4xl font-bold ${selectedTowerFilter !== 'all' && plantThresholds ? getTextColor('ph', sensorData.phValue, plantThresholds) : 'bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent'}`}>
+                  <h2 className={`text-3xl md:text-4xl font-bold ${plantThresholds ? getTextColor('ph', sensorData.phValue, plantThresholds) : 'bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent'}`}>
                     {sensorData.phValue.toFixed(1)}
                   </h2>
                 )}
@@ -555,11 +582,11 @@ export default function Dashboard() {
                   </div>
                   <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Live</span>
                 </div>
-                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Most Recent PPM' : 'PPM Level'}</p>
+                <p className="text-gray-600 font-medium mb-2">PPM Level</p>
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className={`text-3xl md:text-4xl font-bold ${selectedTowerFilter !== 'all' && plantThresholds ? getTextColor('ppm', sensorData.ppmValue, plantThresholds) : 'bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent'}`}>
+                  <h2 className={`text-3xl md:text-4xl font-bold ${plantThresholds ? getTextColor('ppm', sensorData.ppmValue, plantThresholds) : 'bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent'}`}>
                     {sensorData.ppmValue.toFixed(0)} <span className="text-xl md:text-2xl">ppm</span>
                   </h2>
                 )}
@@ -582,11 +609,11 @@ export default function Dashboard() {
                   </div>
                   <span className="text-xs font-semibold text-cyan-600 bg-cyan-100 px-3 py-1 rounded-full">Live</span>
                 </div>
-                <p className="text-gray-600 font-medium mb-2">{selectedTowerFilter === 'all' ? 'Most Recent Water Level' : 'Water Level'}</p>
+                <p className="text-gray-600 font-medium mb-2">Water Level</p>
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className={`text-3xl md:text-4xl font-bold ${selectedTowerFilter !== 'all' ? getTextColor('water', sensorData.targetWaterLevel, null) : 'bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent'}`}>
+                  <h2 className={`text-3xl md:text-4xl font-bold ${getTextColor('water', sensorData.targetWaterLevel, null)}`}>
                     {Math.round(Math.max(0, Math.min(100, sensorData.targetWaterLevel)))}<span className="text-xl md:text-2xl">%</span>
                   </h2>
                 )}
@@ -807,9 +834,11 @@ export default function Dashboard() {
                   className="px-4 py-2 border-2 border-green-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 w-full md:min-w-[200px] cursor-pointer hover:border-green-300 transition-colors"
                 >
                   <option value="all">🌍 All Towers</option>
-                  <option value="thisWeek">📅 This Week</option>
-                  <option value="thisMonth">📅 This Month</option>
-                  <option value="last3Months">📅 Last 3 Months</option>
+                  {getAvailableMonths().map((monthYear) => (
+                    <option key={monthYear} value={`month_${monthYear}`}>
+                      📅 {formatMonthDisplay(monthYear)}
+                    </option>
+                  ))}
                   {getUniquePlantNames().map((plantName) => (
                     <option key={plantName} value={`plant_${plantName}`}>
                       🌱 {plantName} Only
