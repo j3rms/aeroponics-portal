@@ -4,7 +4,7 @@ import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
-import { TrendingUp, Droplets, Activity, Leaf, AlertCircle, Info } from "lucide-react";
+import { TrendingUp, Droplets, Activity, Leaf, AlertCircle, Info, Thermometer } from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -47,6 +47,13 @@ const getTextColor = (type, value, thresholds) => {
     if (value >= 50) return 'text-green-600'; // High - good
     if (value >= 30) return 'text-yellow-600'; // Mid
     return 'text-red-600'; // Too low
+  }
+
+  if (type === 'temp') {
+    // Temperature (°C): green if 18-24, yellow if 15-17.9 or 24.1-28, red otherwise
+    if (value >= 18 && value <= 24) return 'text-green-600';
+    if ((value >= 15 && value < 18) || (value > 24 && value <= 28)) return 'text-yellow-600';
+    return 'text-red-600';
   }
 
   if (!thresholds) return 'text-gray-600';
@@ -108,6 +115,7 @@ export default function Dashboard() {
     phValue: 0,
     ppmValue: 0,
     targetWaterLevel: 0,
+    waterTemperatureC: 22.0,
   });
   const [waterLevel, setWaterLevel] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -143,6 +151,12 @@ export default function Dashboard() {
           phValue: result.data.phValue || 0,
           ppmValue: result.data.ppmValue || 0,
           targetWaterLevel: normalizeWaterLevel(result.data.waterLevel),
+          waterTemperatureC: (
+            result.data.waterTemperatureC ??
+            result.data.temperatureC ??
+            result.data.tempC ??
+            22.0 // dummy fallback
+          ),
         });
         
         // Set plant name and thresholds for color coding
@@ -593,7 +607,7 @@ export default function Dashboard() {
               </div>
             </motion.div>
 
-            {/* Water Level Card */}
+            {/* Water Temperature Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -605,16 +619,25 @@ export default function Dashboard() {
               <div className="relative">
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    <Droplets className="w-6 h-6 text-white" />
+                    <Thermometer className="w-6 h-6 text-white" />
                   </div>
                   <span className="text-xs font-semibold text-cyan-600 bg-cyan-100 px-3 py-1 rounded-full">Live</span>
                 </div>
+<<<<<<< Updated upstream
                 <p className="text-gray-600 font-medium mb-2">Water Level</p>
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
                   <h2 className={`text-3xl md:text-4xl font-bold ${getTextColor('water', sensorData.targetWaterLevel, null)}`}>
                     {Math.round(Math.max(0, Math.min(100, sensorData.targetWaterLevel)))}<span className="text-xl md:text-2xl">%</span>
+=======
+                <p className="text-gray-600 font-medium mb-2">Water Temperature</p>
+                {loading ? (
+                  <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
+                ) : (
+                  <h2 className="text-3xl md:text-4xl font-bold text-cyan-600">
+                    {Number(sensorData.waterTemperatureC).toFixed(1)}<span className="text-xl md:text-2xl">°C</span>
+>>>>>>> Stashed changes
                   </h2>
                 )}
               </div>

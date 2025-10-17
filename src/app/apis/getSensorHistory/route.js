@@ -86,14 +86,20 @@ export async function GET(request) {
         historyData = {
           labels: recentData.map(log => {
             if (log.time) {
-              const time = log.time.split(':');
-              return `${time[0]}:${time[1]}`;
+              try {
+                // Handle LocalDateTime format (e.g., "2025-10-17T10:45:00")
+                const dt = new Date(log.time);
+                return dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+              } catch {
+                return '';
+              }
             }
             return '';
           }),
           phData: recentData.map(log => parseFloat(log.ph_level)),
           ppmData: recentData.map(log => parseFloat(log.ppm)),
-          waterLevelData: recentData.map(log => waterLevelMap[log.water_level] || 0)
+          waterLevelData: recentData.map(log => waterLevelMap[log.water_level] || 0),
+          temperatureData: recentData.map(log => parseFloat(log.water_temperature || 0))
         };
       } else {
         // All towers - calculate averages for each time point
@@ -115,8 +121,13 @@ export async function GET(request) {
         // Calculate averages for each time point
         historyData = {
           labels: sortedTimes.map(time => {
-            const timeParts = time.split(':');
-            return `${timeParts[0]}:${timeParts[1]}`;
+            try {
+              // Handle LocalDateTime format
+              const dt = new Date(time);
+              return dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            } catch {
+              return '';
+            }
           }),
           phData: sortedTimes.map(time => {
             const logs = timeGroups.get(time);
@@ -132,6 +143,11 @@ export async function GET(request) {
             const logs = timeGroups.get(time);
             const avgWaterLevel = logs.reduce((sum, log) => sum + (waterLevelMap[log.water_level] || 0), 0) / logs.length;
             return avgWaterLevel;
+          }),
+          temperatureData: sortedTimes.map(time => {
+            const logs = timeGroups.get(time);
+            const avgTemp = logs.reduce((sum, log) => sum + parseFloat(log.water_temperature || 0), 0) / logs.length;
+            return avgTemp;
           })
         };
       }

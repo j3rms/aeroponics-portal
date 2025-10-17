@@ -37,6 +37,7 @@ export default function MyAccount() {
 
   const [successMessage, setSuccessMessage] = useState('');
   const [showCropper, setShowCropper] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [tempImageUrl, setTempImageUrl] = useState(null);
   const [pendingFile, setPendingFile] = useState(null);
   const [cropBox, setCropBox] = useState({ x: 100, y: 100, size: 200 });
@@ -239,8 +240,14 @@ export default function MyAccount() {
     } catch {}
   };
 
+  const handleConfirmClick = () => {
+    // Show confirmation dialog before proceeding
+    setShowConfirmDialog(true);
+  };
+
   const confirmCropAndUpload = async () => {
-    if (!tempImageUrl || !pendingFile) { setShowCropper(false); return; }
+    if (!tempImageUrl || !pendingFile) { setShowCropper(false); setShowConfirmDialog(false); return; }
+    setShowConfirmDialog(false);
     setUploadingAvatar(true);
     try {
       const img = document.createElement('img');
@@ -383,6 +390,42 @@ export default function MyAccount() {
       <Sidebar />
 
       <div className="flex flex-col flex-1">
+        {/* Confirmation Dialog */}
+        {showConfirmDialog && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">Confirm Changes</h3>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to save this profile picture?
+                </p>
+                <div className="flex gap-3 w-full">
+                  <button
+                    onClick={() => setShowConfirmDialog(false)}
+                    className="flex-1 px-6 py-3 rounded-xl bg-gray-200 hover:bg-gray-300 font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmCropAndUpload}
+                    disabled={uploadingAvatar}
+                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold transition-all disabled:opacity-60"
+                  >
+                    {uploadingAvatar ? 'Saving...' : 'Yes, Save'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showCropper && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onMouseMove={onCropMouseMove} onMouseUp={onCropMouseUp}>
             <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
@@ -407,7 +450,7 @@ export default function MyAccount() {
               </div>
               <div className="flex justify-end gap-3">
                 <button onClick={cancelCrop} className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300">Cancel</button>
-                <button onClick={confirmCropAndUpload} disabled={uploadingAvatar} className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 disabled:opacity-60">Confirm</button>
+                <button onClick={handleConfirmClick} disabled={uploadingAvatar} className="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 disabled:opacity-60">Confirm</button>
               </div>
             </div>
           </div>

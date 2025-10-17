@@ -104,31 +104,31 @@ export async function GET(request) {
         logs = logs.filter((log) => log?.tower?.id === idNum);
       }
 
-      // sort by time if available
+      // sort by time if available (now LocalDateTime from backend)
       logs.sort((a, b) => {
-        const ta = a?.time || "";
-        const tb = b?.time || "";
-        return ta.localeCompare(tb);
+        const ta = a?.time ? new Date(a.time).getTime() : 0;
+        const tb = b?.time ? new Date(b.time).getTime() : 0;
+        return ta - tb;
       });
 
       // take last N
       const recent = logs.slice(-limit);
 
       items = recent.map((log, idx) => {
-        // Create a proper timestamp from the time field
-        // Since we only have time, we'll use today's date
+        // Parse LocalDateTime from backend (format: "2025-10-17T10:45:00")
         let timestamp = null;
+        let timeOnly = null;
+        
         if (log?.time) {
-          const today = new Date();
-          const [hours, minutes, seconds] = log.time.split(':');
-          timestamp = new Date(
-            today.getFullYear(),
-            today.getMonth(),
-            today.getDate(),
-            parseInt(hours),
-            parseInt(minutes),
-            parseInt(seconds || 0)
-          ).toISOString();
+          try {
+            // Backend returns LocalDateTime in ISO format
+            const dt = new Date(log.time);
+            timestamp = dt.toISOString();
+            // Extract time portion for display
+            timeOnly = dt.toTimeString().split(' ')[0]; // "HH:mm:ss"
+          } catch (e) {
+            console.error('Failed to parse datetime:', log.time, e);
+          }
         }
 
         return {
@@ -138,8 +138,9 @@ export async function GET(request) {
           phLevel: parseFloat(log?.ph_level ?? 0),
           ppmLevel: parseFloat(log?.ppm ?? 0),
           waterLevel: waterLevelMap[log?.water_level] ?? 0,
-          time: log?.time || null, // Keep original time
-          timestamp: timestamp, // Full timestamp for display
+          waterTemperature: parseFloat(log?.water_temperature ?? 0),
+          time: timeOnly, // Time-only string for display ("HH:mm:ss")
+          timestamp: timestamp, // Full ISO timestamp
         };
       });
     }

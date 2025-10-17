@@ -4,7 +4,7 @@ import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { FileText, ChevronLeft, ChevronRight, Droplets, Activity, Gauge, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight, Droplets, Activity, Gauge, Thermometer, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 // Data is now fetched from backend via /apis/getLogs
 
@@ -21,26 +21,53 @@ const PLANT_THRESHOLDS = {
 // Water threshold
 const WATER_THRESHOLD = { min: 50 };
 
-// Helper function (JS version)
-const getStatusColor = (type, value, plantName) => {
+// Helper function to get badge color classes based on thresholds
+const getBadgeColor = (type, value, plantName) => {
   if (type === 'water') {
-    return value >= WATER_THRESHOLD.min ? 'text-green-600' : 'text-red-600 font-semibold';
+    // Water: green if >= 50%, yellow if 30-49%, red if < 30%
+    if (value >= 50) return 'bg-blue-100 text-blue-700';
+    if (value >= 30) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-red-100 text-red-700';
   }
 
   const plantThresholds = PLANT_THRESHOLDS[plantName];
-  if (!plantThresholds) return 'text-gray-600';
+  if (!plantThresholds) return 'bg-gray-100 text-gray-700';
 
   switch (type) {
     case 'ph':
-      return (value >= plantThresholds.ph.min && value <= plantThresholds.ph.max)
-        ? 'text-green-600'
-        : 'text-red-600 font-semibold';
+      const phMin = plantThresholds.ph.min;
+      const phMax = plantThresholds.ph.max;
+      const phRange = phMax - phMin;
+      
+      // Green if within ideal range (middle 60% of range)
+      if (value >= phMin + phRange * 0.2 && value <= phMax - phRange * 0.2) {
+        return 'bg-green-100 text-green-700';
+      }
+      // Yellow if in acceptable range but not ideal
+      if (value >= phMin && value <= phMax) {
+        return 'bg-yellow-100 text-yellow-700';
+      }
+      // Red if outside range
+      return 'bg-red-100 text-red-700';
+      
     case 'ppm':
-      return (value >= plantThresholds.ppm.min && value <= plantThresholds.ppm.max)
-        ? 'text-green-600'
-        : 'text-yellow-600 font-semibold';
+      const ppmMin = plantThresholds.ppm.min;
+      const ppmMax = plantThresholds.ppm.max;
+      const ppmRange = ppmMax - ppmMin;
+      
+      // Green if within ideal range (middle 60% of range)
+      if (value >= ppmMin + ppmRange * 0.2 && value <= ppmMax - ppmRange * 0.2) {
+        return 'bg-green-100 text-green-700';
+      }
+      // Yellow if in acceptable range but not ideal
+      if (value >= ppmMin && value <= ppmMax) {
+        return 'bg-yellow-100 text-yellow-700';
+      }
+      // Red if outside range
+      return 'bg-red-100 text-red-700';
+      
     default:
-      return 'text-gray-600';
+      return 'bg-gray-100 text-gray-700';
   }
 };
 
@@ -109,6 +136,10 @@ export default function Logs() {
       case 'water':
         aValue = a.waterLevel || 0;
         bValue = b.waterLevel || 0;
+        break;
+      case 'temp':
+        aValue = a.waterTemperature || 0;
+        bValue = b.waterTemperature || 0;
         break;
       case 'timestamp':
         aValue = a.timestamp ? new Date(a.timestamp).getTime() : 0;
@@ -244,6 +275,21 @@ export default function Logs() {
                     </th>
                     <th className="px-2 md:px-6 py-3 md:py-5 text-center font-bold text-xs md:text-base">
                       <button
+                        onClick={() => handleSort('temp')}
+                        className="flex items-center justify-center gap-2 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
+                      >
+                        <Thermometer className="w-4 h-4" />
+                        <span className="md:hidden">TEMP</span>
+                        <span className="hidden md:inline">TEMP (°C)</span>
+                        {sortField === 'temp' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-50" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-2 md:px-6 py-3 md:py-5 text-center font-bold text-xs md:text-base">
+                      <button
                         onClick={() => handleSort('timestamp')}
                         className="flex items-center justify-center gap-1 mx-auto hover:bg-white/10 px-3 py-1 rounded-lg transition-colors"
                       >
@@ -261,7 +307,7 @@ export default function Logs() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                         <div className="flex flex-col items-center gap-3">
                           <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
                           <span className="font-medium">Loading logs...</span>
@@ -270,7 +316,7 @@ export default function Logs() {
                     </tr>
                   ) : currentData.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                         <div className="flex flex-col items-center gap-2">
                           <FileText className="w-12 h-12 text-gray-300" />
                           <span className="font-medium">No logs available</span>
@@ -296,31 +342,28 @@ export default function Logs() {
                       </td>
                       <td className={`px-2 md:px-6 py-2.5 md:py-4 text-center`}>
                         <span className={`inline-flex items-center px-2 py-1 rounded-full font-bold text-xs md:text-sm ${
-                          getStatusColor('ph', data.phLevel, data.towerName).includes('green') 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-red-100 text-red-700'
+                          getBadgeColor('ph', data.phLevel, data.plantName)
                         }`}>
                           {Number.isFinite(data.phLevel) ? data.phLevel.toFixed(1) : '—'}
                         </span>
                       </td>
                       <td className={`px-2 md:px-6 py-2.5 md:py-4 text-center`}>
                         <span className={`inline-flex items-center px-2 py-1 rounded-full font-bold text-xs md:text-sm ${
-                          getStatusColor('ppm', data.ppmLevel, data.towerName).includes('green') 
-                            ? 'bg-green-100 text-green-700' 
-                            : getStatusColor('ppm', data.ppmLevel, data.towerName).includes('yellow')
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
+                          getBadgeColor('ppm', data.ppmLevel, data.plantName)
                         }`}>
                           {Number.isFinite(data.ppmLevel) ? data.ppmLevel.toLocaleString() : '—'}
                         </span>
                       </td>
                       <td className={`px-2 md:px-6 py-2.5 md:py-4 text-center`}>
                         <span className={`inline-flex items-center px-2 py-1 rounded-full font-bold text-xs md:text-sm ${
-                          getStatusColor('water', data.waterLevel, data.towerName).includes('green') 
-                            ? 'bg-blue-100 text-blue-700' 
-                            : 'bg-red-100 text-red-700'
+                          getBadgeColor('water', data.waterLevel, data.plantName)
                         }`}>
                           {Number.isFinite(data.waterLevel) ? `${data.waterLevel}%` : '—'}
+                        </span>
+                      </td>
+                      <td className="px-2 md:px-6 py-2.5 md:py-4 text-center">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full font-bold text-xs md:text-sm bg-cyan-100 text-cyan-700">
+                          {Number.isFinite(data.waterTemperature) && data.waterTemperature > 0 ? `${data.waterTemperature.toFixed(1)}°C` : '—'}
                         </span>
                       </td>
                       <td className="px-2 md:px-6 py-2.5 md:py-4 text-center">

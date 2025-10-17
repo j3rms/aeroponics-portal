@@ -87,6 +87,7 @@ export async function GET(request) {
             phValue: parseFloat(latestLog.ph_level),
             ppmValue: parseFloat(latestLog.ppm),
             waterLevel: waterLevelMap[latestLog.water_level] || 0,
+            waterTemperatureC: parseFloat(latestLog.water_temperature || 0),
             timestamp: latestLog.time,
             towerId: latestLog.tower?.id,
             towerName: latestLog.tower?.name
@@ -110,11 +111,13 @@ export async function GET(request) {
           const avgPh = latestEntries.reduce((sum, log) => sum + parseFloat(log.ph_level), 0) / latestEntries.length;
           const avgPpm = latestEntries.reduce((sum, log) => sum + parseFloat(log.ppm), 0) / latestEntries.length;
           const avgWaterLevel = latestEntries.reduce((sum, log) => sum + (waterLevelMap[log.water_level] || 0), 0) / latestEntries.length;
+          const avgTemp = latestEntries.reduce((sum, log) => sum + parseFloat(log.water_temperature || 0), 0) / latestEntries.length;
           
           sensorData = {
             phValue: avgPh,
             ppmValue: avgPpm,
             waterLevel: avgWaterLevel,
+            waterTemperatureC: avgTemp,
             timestamp: latestEntries[latestEntries.length - 1].time,
             towerId: null,
             towerName: `Average of ${latestEntries.length} towers`
@@ -129,6 +132,7 @@ export async function GET(request) {
         phValue: 0,
         ppmValue: 0,
         waterLevel: 0,
+        waterTemperatureC: 0,
         timestamp: null,
         towerId: null,
         towerName: null
