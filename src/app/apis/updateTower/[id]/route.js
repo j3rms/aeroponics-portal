@@ -5,7 +5,7 @@ import { url } from "../../../_api/routes";
 export async function PUT(request, { params }) {
   try {
     const token = await getToken();
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
 
     const updateEndpoint = `${url()}/tower/${id}`;

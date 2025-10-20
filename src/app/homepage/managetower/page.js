@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import Link from "next/link";
+import { toast } from 'react-hot-toast';
 
 export default function ManageTower() {
   const [towers, setTowers] = useState([]);
@@ -117,6 +118,7 @@ export default function ManageTower() {
         endDate: towerData.end_date || towerData.endDate,
         frequency: frequency,
         waterLevel: towerData.water_level || towerData.waterLevel,
+        wateringDuration: towerData.watering_duration || towerData.wateringDuration || schedules[0]?.duration || 15,
         user: towerData.user,
         plant: towerData.plant,
         schedules: schedules,
@@ -124,7 +126,7 @@ export default function ManageTower() {
       });
     } catch (error) {
       console.error('Error fetching tower data:', error);
-      alert('Failed to load tower data. Please try again.');
+      toast.error('Failed to load tower data. Please try again.');
       setEditingTower(null);
     } finally {
       setLoadingTowerData(false);
@@ -144,47 +146,71 @@ export default function ManageTower() {
 
   const handleSaveEdit = async () => {
     if (isEndDateInvalid()) {
-      alert("End date must be later than the start date.");
+      toast.error("End date must be later than the start date.");
       return;
     }
 
-    // Validate watering times
-    console.log('Validating watering times:', editingTower.wateringTimes);
-    console.log('Frequency:', editingTower.frequency);
-    
-    if (!editingTower.wateringTimes || editingTower.wateringTimes.length < editingTower.frequency) {
-      alert(`Please fill in all ${editingTower.frequency} watering times.`);
-      return;
-    }
-    
-    const emptyTimes = editingTower.wateringTimes.slice(0, editingTower.frequency).filter(t => !t);
-    if (emptyTimes.length > 0) {
-      alert(`Please fill in all watering times. ${emptyTimes.length} time(s) are missing.`);
-      return;
+    // Only validate watering times if tower is active
+    if (editingTower.status) {
+      console.log('Validating watering times:', editingTower.wateringTimes);
+      console.log('Frequency:', editingTower.frequency);
+      
+      if (!editingTower.wateringTimes || editingTower.wateringTimes.length < editingTower.frequency) {
+        toast.error(`Please fill in all ${editingTower.frequency} watering times.`);
+        return;
+      }
+      
+      const emptyTimes = editingTower.wateringTimes.slice(0, editingTower.frequency).filter(t => !t);
+      if (emptyTimes.length > 0) {
+        toast.error(`Please fill in all watering times. ${emptyTimes.length} time(s) are missing.`);
+        return;
+      }
+
+      // Check for overlapping times
+      const times = editingTower.wateringTimes.slice(0, editingTower.frequency).filter(t => t);
+      const duration = editingTower.wateringDuration || 15;
+      
+      for (let i = 0; i < times.length; i++) {
+        for (let j = i + 1; j < times.length; j++) {
+          const time1 = times[i].split(':');
+          const time2 = times[j].split(':');
+          
+          const start1 = parseInt(time1[0]) * 60 + parseInt(time1[1]);
+          const end1 = start1 + duration;
+          const start2 = parseInt(time2[0]) * 60 + parseInt(time2[1]);
+          const end2 = start2 + duration;
+          
+          // Check if times overlap
+          if ((start1 < end2 && end1 > start2) || (start2 < end1 && end2 > start1)) {
+            toast.error(`Watering times overlap! Time ${i + 1} (${times[i]}) and Time ${j + 1} (${times[j]}) conflict with each other.`);
+            return;
+          }
+        }
+      }
     }
 
     try {
       setSaving(true);
+      toast.loading('Updating tower...');
 
       // Prepare payload matching backend TowerRO structure
       const payload = {
         id: editingTower.id,
-        user: { id: editingTower.user.id },
-        plant: { id: editingTower.plant.id },
+        user: editingTower.user, // Send full user object
+        plant: editingTower.plant, // Send full plant object
         name: editingTower.name,
-        time: editingTower.wateringTimes[0] + ":00", // First time as main time
-        water_level: editingTower.waterLevel,
         frequency: editingTower.frequency,
         start_date: editingTower.startDate,
         end_date: editingTower.endDate,
         status: editingTower.status, // Send as boolean
-        schedules: editingTower.wateringTimes.map((time, index) => ({
+        watering_duration: editingTower.wateringDuration || 15,
+        schedules: editingTower.wateringTimes.slice(0, editingTower.frequency).map((time, index) => ({
           id: editingTower.schedules?.[index]?.id || null,
           start_time: time + ":00",
-          duration: editingTower.schedules?.[index]?.duration || 15,
-          active: editingTower.status,
         })),
       };
+
+      console.log('Updating tower with payload:', JSON.stringify(payload, null, 2));
 
       const response = await fetch(`/apis/updateTower/${editingTower.id}`, {
         method: "PUT",
@@ -195,16 +221,23 @@ export default function ManageTower() {
       });
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || "Failed to update tower");
+        const errorData = await response.json();
+        console.error('Backend error response:', errorData);
+        throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
-      alert("Tower updated successfully!");
+      const result = await response.json();
+      console.log('Tower updated successfully:', result);
+
+      toast.dismiss();
+      toast.success("Tower updated successfully!");
       setEditingTower(null);
       fetchTowers(); // Refresh the list
     } catch (error) {
       console.error("Error updating tower:", error);
-      alert("Failed to update tower. Please try again.");
+      toast.dismiss();
+      const errorMsg = error.message || 'Unknown error occurred';
+      toast.error(`Failed to update tower: ${errorMsg}`);
     } finally {
       setSaving(false);
     }
@@ -525,10 +558,10 @@ export default function ManageTower() {
                   </div>
 
                   {/* Frequency */}
-                  <div className="mb-6">
+                  <div className="mb-4">
                     <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
                       <RefreshCw className="w-4 h-4 text-green-600" />
-                      Watering Frequency
+                      Watering Frequency (times per day)
                     </label>
                     <input
                       type="number"
@@ -549,6 +582,25 @@ export default function ManageTower() {
                     />
                     <p className="text-sm text-gray-600 mt-2 font-medium">
                       <span className="text-green-700">{editingTower.frequency}</span> times per day
+                    </p>
+                  </div>
+
+                  {/* Watering Duration */}
+                  <div className="mb-4">
+                    <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+                      <Clock className="w-4 h-4 text-green-600" />
+                      Watering Duration (minutes per session)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={editingTower.wateringDuration}
+                      onChange={(e) => handleEditChange("wateringDuration", Number(e.target.value) || 15)}
+                      className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                    />
+                    <p className="text-sm text-gray-600 mt-2 font-medium">
+                      Each watering session lasts <span className="text-green-700">{editingTower.wateringDuration}</span> minutes
                     </p>
                   </div>
 

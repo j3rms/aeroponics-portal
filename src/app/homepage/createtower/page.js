@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
-import { Clock, RefreshCw, ChevronLeft, ChevronRight, X, Plus, Leaf, ArrowLeft, Calendar } from 'lucide-react';
+import { Clock, RefreshCw, ChevronLeft, ChevronRight, X, Plus, Leaf, ArrowLeft, Calendar, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
@@ -28,7 +28,7 @@ export default function CreateTower() {
 
   // Watering states
   const [wateringFrequency, setWateringFrequency] = useState('');
-  const [wateringTimes, setWateringTimes] = useState([]);
+  const [wateringTimes, setWateringTimes] = useState([]); // Array of {time: string, duration: number}
   const [customFrequency, setCustomFrequency] = useState('');
   const [showFrequencyModal, setShowFrequencyModal] = useState(false);
 
@@ -43,6 +43,17 @@ export default function CreateTower() {
   const [customPhMax, setCustomPhMax] = useState('');
   const [customPpmMin, setCustomPpmMin] = useState('');
   const [customPpmMax, setCustomPpmMax] = useState('');
+
+  // Step wizard state
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 4;
+
+  const steps = [
+    { number: 1, title: 'Tower Name', description: 'Name your aeroponics tower' },
+    { number: 2, title: 'Select Plant', description: 'Choose the plant variety' },
+    { number: 3, title: 'Watering Schedule', description: 'Set watering frequency and times' },
+    { number: 4, title: 'Select Dates', description: 'Choose start and end dates' }
+  ];
 
   // Calendar setup
   const today = new Date();
@@ -136,11 +147,69 @@ export default function CreateTower() {
 
   const makeDate = (day) => new Date(year, month, day);
 
-  const formatDateLocal = (d) => {
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+  const formatDateLocal = (date) => {
+    if (!date) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Step validation functions
+  const validateStep = (step) => {
+    switch(step) {
+      case 1:
+        if (!towerName.trim()) {
+          toast.error('Please enter a tower name');
+          return false;
+        }
+        return true;
+      case 2:
+        if (!selectedPlant) {
+          toast.error('Please select a plant');
+          return false;
+        }
+        return true;
+      case 3:
+        if (!wateringFrequency) {
+          toast.error('Please select watering frequency');
+          return false;
+        }
+        if (wateringTimes.length === 0 || wateringTimes.some(t => !t.time || !t.duration)) {
+          toast.error('Please set all watering times and durations');
+          return false;
+        }
+        return true;
+      case 4:
+        if (!startDate || !endDate) {
+          toast.error('Please select both start and end dates');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  };
+
+  // Step navigation handlers
+  const handleNextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goToStep = (step) => {
+    // Allow going back to any previous step
+    if (step <= currentStep) {
+      setCurrentStep(step);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Check if a date is in the past (before today)
@@ -245,57 +314,116 @@ export default function CreateTower() {
     }
   };
 
-  // Utility: generate times with 6hr interval starting at 08:00
-  const generateDefaultTimes = (count) => {
+  // Utility: generate  // Default time intervals with duration (e.g., 8:00, 14:00, 20:00) - default 15 min duration
+  const generateDefaultTimes = (freq) => {
     const times = [];
-    let hour = 8;
-    for (let i = 0; i < count; i++) {
-      const h = String(hour).padStart(2, '0');
-      times.push(`${h}:00`);
-      hour = (hour + 6) % 24;
+    const interval = Math.floor(24 / freq);
+    for (let i = 0; i < freq; i++) {
+      const hour = (8 + i * interval) % 24;
+      times.push({ time: `${String(hour).padStart(2, '0')}:00`, duration: 15 });
     }
     return times;
   };
 
   // Frequency dropdown
-  // Frequency dropdown
-const handleFrequencyChange = (value) => {
-  if (value === 'custom') {
-    setShowFrequencyModal(true);
-  } else {
-    setWateringFrequency(value);
-    const freq = parseInt(value);
-    if (!isNaN(freq)) {
-      setWateringTimes(generateDefaultTimes(freq)); // default 8:00 + 6hr interval
+  const handleFrequencyChange = (value) => {
+    if (value === 'custom') {
+      setShowFrequencyModal(true);
     } else {
-      setWateringTimes([]);
+      setWateringFrequency(value);
+      const freq = parseInt(value);
+      if (!isNaN(freq)) {
+        setWateringTimes(generateDefaultTimes(freq)); // default 8:00 + 6hr interval
+      } else {
+        setWateringTimes([]);
+      }
     }
-  }
-};
+  };
 
 
   // Save custom frequency
-  // Save custom frequency
-const handleCustomFrequencySave = () => {
-  const freq = parseInt(customFrequency);
-  if (!freq || freq <= 0) {
-    alert('Please enter a valid custom frequency');
-    return;
-  }
-  setWateringFrequency(freq.toString());
+  const handleCustomFrequencySave = () => {
+    const freq = parseInt(customFrequency);
+    if (!freq || freq <= 0) {
+      alert('Please enter a valid custom frequency');
+      return;
+    }
+    setWateringFrequency(freq.toString());
 
-  // 👉 For custom, create empty slots instead of default times
-  setWateringTimes(Array(freq).fill(""));
+    // For custom, create empty slots with default duration
+    setWateringTimes(Array(freq).fill(null).map(() => ({ time: "", duration: 15 })));
 
-  setShowFrequencyModal(false);
-  setCustomFrequency('');
-};
+    setShowFrequencyModal(false);
+    setCustomFrequency('');
+  };
+
+  // Helper function to check if a time overlaps with existing schedules
+  const isTimeOverlapping = (newTime, newDuration, currentIndex) => {
+    if (!newTime) return false;
+    
+    const [newHour, newMinute] = newTime.split(':').map(Number);
+    const newStartMinutes = newHour * 60 + newMinute;
+    const newEndMinutes = newStartMinutes + newDuration;
+    
+    for (let i = 0; i < wateringTimes.length; i++) {
+      if (i === currentIndex || !wateringTimes[i].time) continue;
+      
+      const [existingHour, existingMinute] = wateringTimes[i].time.split(':').map(Number);
+      const existingStartMinutes = existingHour * 60 + existingMinute;
+      const existingEndMinutes = existingStartMinutes + wateringTimes[i].duration;
+      
+      // Check if there's any overlap
+      if (
+        (newStartMinutes >= existingStartMinutes && newStartMinutes < existingEndMinutes) ||
+        (newEndMinutes > existingStartMinutes && newEndMinutes <= existingEndMinutes) ||
+        (newStartMinutes <= existingStartMinutes && newEndMinutes >= existingEndMinutes)
+      ) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
 
   // Update individual watering time
   const handleTimeChange = (index, value) => {
+    if (!value) {
+      const updated = [...wateringTimes];
+      updated[index] = { ...updated[index], time: value };
+      setWateringTimes(updated);
+      return;
+    }
+    
+    // Check for overlaps
+    const duration = wateringTimes[index].duration;
+    if (isTimeOverlapping(value, duration, index)) {
+      toast.error('This time conflicts with another watering schedule!');
+      return;
+    }
+    
     const updated = [...wateringTimes];
-    updated[index] = value;
+    updated[index] = { ...updated[index], time: value };
     setWateringTimes(updated);
+  };
+
+  // Update individual watering duration
+  const handleDurationChange = (index, value) => {
+    const duration = parseInt(value);
+    if (duration > 0 && duration <= 120) { // Max 120 minutes (2 hours)
+      const updated = [...wateringTimes];
+      
+      // If this is the first schedule, apply duration to all schedules
+      if (index === 0) {
+        updated.forEach((schedule, i) => {
+          updated[i] = { ...updated[i], duration: duration };
+        });
+      } else {
+        // For other schedules, just update the current one
+        updated[index] = { ...updated[index], duration: duration };
+      }
+      
+      setWateringTimes(updated);
+    }
   };
   // Submit handler
   const handleSubmit = async (e) => {
@@ -304,8 +432,8 @@ const handleCustomFrequencySave = () => {
     const plant =
       selectedPlant === 'custom' ? customPlantData : plants.find((p) => p.name === selectedPlant);
 
-    if (!towerName || !plant || wateringTimes.length === 0 || wateringTimes.some(t => !t) || !wateringFrequency || !startDate || !endDate) {
-      toast.error('Please complete all fields before submitting');
+    if (!towerName || !plant || wateringTimes.length === 0 || wateringTimes.some(t => !t.time || !t.duration) || !wateringFrequency || !startDate || !endDate) {
+      toast.error('Please complete all fields including watering times and durations');
       return;
     }
 
@@ -322,15 +450,17 @@ const handleCustomFrequencySave = () => {
       name: towerName,
       user: { id: currentUserId }, // Use current logged-in user ID
       plant: { id: plant.id },
-      time: wateringTimes[0], // First watering time (HH:mm format, no seconds)
+      time: wateringTimes[0].time, // First watering time (HH:mm format, no seconds)
       water_level: 'MEDIUM', // Use enum value: HIGH, MEDIUM, or LOW
       frequency: parseInt(wateringFrequency),
       start_date: formatDateLocal(startDate),
       end_date: formatDateLocal(endDate),
       status: true, // New towers are active by default
-      schedules: wateringTimes.map((time) => ({
+      watering_duration: wateringTimes[0].duration, // Duration in minutes (same for all sessions)
+      schedules: wateringTimes.map((schedule) => ({
         id: 0, // New schedule, no ID yet
-        start_time: time // HH:mm format
+        start_time: schedule.time, // HH:mm format
+        duration: schedule.duration // Duration in minutes
       }))
     };
 
@@ -464,37 +594,130 @@ const handleCustomFrequencySave = () => {
             </div>
           </motion.div>
 
+          {/* Step Progress Indicator */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="bg-white/90 backdrop-blur-sm rounded-2xl border-2 border-green-100 shadow-lg p-6 mb-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              {steps.map((step, index) => (
+                <div key={step.number} className="flex items-center flex-1">
+                  {/* Step Circle */}
+                  <button
+                    type="button"
+                    onClick={() => goToStep(step.number)}
+                    disabled={step.number > currentStep}
+                    className={`relative flex flex-col items-center cursor-pointer group ${
+                      step.number > currentStep ? 'opacity-40 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300 ${
+                        currentStep === step.number
+                          ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg scale-110'
+                          : currentStep > step.number
+                          ? 'bg-green-100 text-green-700 border-2 border-green-500'
+                          : 'bg-gray-100 text-gray-400 border-2 border-gray-300'
+                      }`}
+                    >
+                      {currentStep > step.number ? '✓' : step.number}
+                    </div>
+                    <div className="mt-2 text-center">
+                      <div
+                        className={`text-sm font-semibold ${
+                          currentStep === step.number
+                            ? 'text-green-700'
+                            : currentStep > step.number
+                            ? 'text-green-600'
+                            : 'text-gray-400'
+                        }`}
+                      >
+                        {step.title}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5 hidden sm:block">
+                        {step.description}
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Connector Line */}
+                  {index < steps.length - 1 && (
+                    <div className="flex-1 h-1 mx-4 relative" style={{ top: '-24px' }}>
+                      <div
+                        className={`h-full rounded transition-all duration-500 ${
+                          currentStep > step.number ? 'bg-green-500' : 'bg-gray-200'
+                        }`}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Current Step Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-800">
+                    Step {currentStep} of {totalSteps}: {steps[currentStep - 1].title}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    {currentStep === 1 && "Give your tower a unique, descriptive name to easily identify it."}
+                    {currentStep === 2 && "Choose the plant variety you'll be growing. This determines the optimal nutrient levels."}
+                    {currentStep === 3 && "Configure how often and when your system should water the plants."}
+                    {currentStep === 4 && "Set the cultivation period by choosing start and end dates for this tower."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
           <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* Tower Name */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
-            >
-              <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
-                <Leaf className="w-5 h-5 text-green-600" />
-                Tower Name
-              </h2>
-              <input
-                type="text"
-                value={towerName}
-                onChange={(e) => setTowerName(e.target.value)}
-                placeholder="Enter tower name"
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                required
-              />
-            </motion.div>
+            {/* STEP 1: Tower Name */}
+            {currentStep === 1 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
+              >
+                <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                  <Leaf className="w-5 h-5 text-green-600" />
+                  Tower Name
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Choose a descriptive name that helps you easily identify this tower (e.g., "Basil Tower A", "Tomato Greenhouse 1")
+                </p>
+                <input
+                  type="text"
+                  value={towerName}
+                  onChange={(e) => setTowerName(e.target.value)}
+                  placeholder="e.g., Hydroponic Tower 1, Lettuce Farm A"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  required
+                />
+              </motion.div>
+            )}
 
-            {/* Plant */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8"
-            >
-              <h2 className="font-semibold text-lg text-gray-800 mb-3">Select Your Plant</h2>
+            {/* STEP 2: Plant Selection */}
+            {currentStep === 2 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
+              >
+                <h2 className="font-semibold text-xl text-gray-800 mb-3 flex items-center gap-2">
+                  <Leaf className="w-5 h-5 text-green-600" />
+                  Select Your Plant
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Select from our database of common plants or create a custom plant profile with specific pH and PPM requirements.
+                </p>
               <select
                 value={selectedPlant}
                 onChange={(e) => handlePlantChange(e.target.value)}
@@ -524,19 +747,24 @@ const handleCustomFrequencySave = () => {
                   <p><strong>PPM:</strong> {customPlantData.ppm}</p>
                 </div>
               )}
-            </motion.div>
+              </motion.div>
+            )}
 
-            {/* Watering Schedule */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8"
-            >
-              <h2 className="font-bold text-xl text-gray-800 mb-6 flex items-center gap-2">
+            {/* STEP 3: Watering Schedule */}
+            {currentStep === 3 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
+              >
+              <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
                 <RefreshCw className="w-5 h-5 text-green-600" />
                 Watering Schedule
               </h2>
+              <p className="text-sm text-gray-600 mb-6">
+                Set how many times per day the system should water, then configure the duration and specific start times for each watering session.
+              </p>
 
               {/* Watering Frequency */}
               <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -551,43 +779,100 @@ const handleCustomFrequencySave = () => {
                 <option value="1">Once a day</option>
                 <option value="2">Twice a day</option>
                 <option value="3">3 times a day</option>
-                <option value="custom">Custom</option>
+                <option value="4">4 times a day</option>
+                <option value="custom">Custom...</option>
               </select>
 
               {/* Dynamic Watering Times */}
               {wateringTimes.length > 0 && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-green-600" /> Watering Times
-                  </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    {wateringTimes.map((time, index) => (
-                      <div key={index} className="flex flex-col">
-                        <span className="text-xs font-medium text-gray-600 mb-2">Time {index + 1}</span>
-                        <input
-                          type="time"
-                          value={time}
-                          onChange={(e) => handleTimeChange(index, e.target.value)}
-                          className="px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                        />
-                      </div>
-                    ))}
+                <div className="space-y-4">
+                  {/* Info Banner */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                    <div className="flex items-start gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-[11px] text-blue-700">
+                        <strong>Tip:</strong> Set duration once → applies to all sessions. Times can't overlap.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Duration Section */}
+                  <div className="bg-green-50 border border-green-300 rounded-lg p-3">
+                    <label className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-green-600" /> 
+                      Duration (All Sessions)
+                    </label>
+                    
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="120"
+                        value={wateringTimes[0].duration}
+                        onChange={(e) => handleDurationChange(0, e.target.value)}
+                        className="w-20 px-3 py-2 rounded-lg border border-green-300 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm font-semibold"
+                        placeholder="15"
+                      />
+                      <span className="text-xs font-medium text-gray-700">min for all {wateringTimes.length} session{wateringTimes.length > 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+
+                  {/* Times Section */}
+                  <div>
+                    <label className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-blue-600" /> 
+                      Start Times
+                    </label>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {wateringTimes.map((schedule, index) => (
+                        <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <label className="text-[11px] font-semibold text-gray-600 mb-1.5 block">Session {index + 1}</label>
+                          
+                          <input
+                            type="time"
+                            value={schedule.time}
+                            onChange={(e) => handleTimeChange(index, e.target.value)}
+                            step="3600"
+                            className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                            placeholder="Hour"
+                          />
+                          
+                          {schedule.time && schedule.duration && (
+                            <p className="text-[10px] text-orange-600 font-medium mt-1.5">
+                              ⏰ {schedule.time} - {(() => {
+                                const [h, m] = schedule.time.split(':').map(Number);
+                                const endMinutes = h * 60 + m + schedule.duration;
+                                const endH = Math.floor(endMinutes / 60) % 24;
+                                const endM = endMinutes % 60;
+                                return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+                              })()}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
-            </motion.div>
+              </motion.div>
+            )}
 
-            {/* Calendar */}
-<motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 0.5, delay: 0.4 }}
-  className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
->
-  <h2 className="font-bold text-xl text-gray-800 mb-6 flex items-center gap-2">
-    <Calendar className="w-5 h-5 text-green-600" />
-    Select Watering Period
-  </h2>
+            {/* STEP 4: Calendar */}
+            {currentStep === 4 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
+              >
+                <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-green-600" />
+                  Select Watering Period
+                </h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Choose the start date (today or future) and end date for your tower's cultivation cycle. The system will operate during this period.
+                </p>
 
   {/* Month navigation */}
   <div className="flex justify-between items-center mb-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-4">
@@ -663,31 +948,53 @@ const handleCustomFrequencySave = () => {
       </p>
     </div>
   )}
-</motion.div>
+              </motion.div>
+            )}
 
           </form>
 
-          <div className="mt-10 flex justify-center gap-4">
+          {/* Navigation Buttons */}
+          <div className="mt-10 flex justify-between items-center">
             <motion.button
               type="button"
-              onClick={() => router.push('/homepage/managetower')}
+              onClick={handlePrevStep}
+              disabled={currentStep === 1}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="bg-white border-2 border-gray-300 text-gray-700 px-10 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl hover:border-gray-400 transition-all"
+              className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-semibold shadow-lg transition-all ${
+                currentStep === 1 
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                  : 'bg-white border-2 border-gray-300 text-gray-700 hover:shadow-xl hover:border-gray-400'
+              }`}
             >
-              Cancel
+              <ChevronLeft className="w-5 h-5" />
+              Previous
             </motion.button>
-            <motion.button
-              type="submit"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-10 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isSubmitting && <LoadingSpinner size="sm" color="white" />}
-              {isSubmitting ? 'CREATING TOWER...' : 'CREATE TOWER'}
-            </motion.button>
+
+            {currentStep < totalSteps ? (
+              <motion.button
+                type="button"
+                onClick={handleNextStep}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                Next Step
+                <ChevronRight className="w-5 h-5" />
+              </motion.button>
+            ) : (
+              <motion.button
+                type="submit"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-10 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting && <LoadingSpinner size="sm" color="white" />}
+                {isSubmitting ? 'CREATING TOWER...' : 'CREATE TOWER'}
+              </motion.button>
+            )}
           </div>
         </main>
         <Footer />
@@ -695,66 +1002,137 @@ const handleCustomFrequencySave = () => {
 
       {/* Custom Plant Modal */}
       {showCustomModal && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-2xl p-8 w-full max-w-lg relative border-2 border-green-100"
+          >
+            {/* Close Button */}
             <button
               onClick={() => setShowCustomModal(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Add Custom Plant</h2>
-
-            <input
-              type="text"
-              placeholder="Plant Name"
-              value={customName}
-              onChange={(e) => setCustomName(e.target.value)}
-              className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-200"
-            />
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <input
-                type="number"
-                step="0.1"
-                placeholder="Min pH"
-                value={customPhMin}
-                onChange={(e) => setCustomPhMin(e.target.value)}
-                className="px-4 py-2 rounded-lg border border-gray-200"
-              />
-              <input
-                type="number"
-                step="0.1"
-                placeholder="Max pH"
-                value={customPhMax}
-                onChange={(e) => setCustomPhMax(e.target.value)}
-                className="px-4 py-2 rounded-lg border border-gray-200"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <input
-                type="number"
-                placeholder="Min PPM"
-                value={customPpmMin}
-                onChange={(e) => setCustomPpmMin(e.target.value)}
-                className="px-4 py-2 rounded-lg border border-gray-200"
-              />
-              <input
-                type="number"
-                placeholder="Max PPM"
-                value={customPpmMax}
-                onChange={(e) => setCustomPpmMax(e.target.value)}
-                className="px-4 py-2 rounded-lg border border-gray-200"
-              />
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Leaf className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">Create Custom Plant</h2>
+                <p className="text-sm text-gray-500">Define optimal nutrient ranges for your plant</p>
+              </div>
             </div>
 
-            <button
-              onClick={handleCustomSave}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700"
-            >
-              Save Plant
-            </button>
-          </div>
+            {/* Info Banner */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-700">
+                  <strong>Tip:</strong> Enter the optimal pH and PPM ranges for your specific plant variety. These values will be used for monitoring and alerts.
+                </p>
+              </div>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-5">
+              {/* Plant Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Plant Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Cherry Tomatoes, Basil, Lettuce"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm"
+                />
+              </div>
+
+              {/* pH Range */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  pH Range <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">Minimum pH</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="e.g., 5.5"
+                      value={customPhMin}
+                      onChange={(e) => setCustomPhMin(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">Maximum pH</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="e.g., 6.5"
+                      value={customPhMax}
+                      onChange={(e) => setCustomPhMax(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">💡 Typical range: 5.5 - 6.5 for most plants</p>
+              </div>
+
+              {/* PPM Range */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  PPM Range (Nutrient Concentration) <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">Minimum PPM</label>
+                    <input
+                      type="number"
+                      placeholder="e.g., 800"
+                      value={customPpmMin}
+                      onChange={(e) => setCustomPpmMin(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1.5">Maximum PPM</label>
+                    <input
+                      type="number"
+                      placeholder="e.g., 1400"
+                      value={customPpmMax}
+                      onChange={(e) => setCustomPpmMax(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">💡 Typical range: 800-1400 for leafy greens, 1200-2000 for fruiting plants</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={() => setShowCustomModal(false)}
+                className="flex-1 px-6 py-3 rounded-xl border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCustomSave}
+                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all font-semibold flex items-center justify-center gap-2"
+              >
+                <Leaf className="w-4 h-4" />
+                Save Plant
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
 

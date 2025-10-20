@@ -117,7 +117,6 @@ export default function Dashboard() {
     targetWaterLevel: 0,
     waterTemperatureC: 22.0,
   });
-  const [waterLevel, setWaterLevel] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chartData, setChartData] = useState({
@@ -422,13 +421,6 @@ export default function Dashboard() {
     setFilteredTowers(filtered);
   }, [towers, activeTowerFilter]);
 
-  // Animate tank fill-up when data changes
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setWaterLevel(normalizeWaterLevel(sensorData.targetWaterLevel));
-    }, 500);
-    return () => clearTimeout(timeout);
-  }, [sensorData.targetWaterLevel]);
 
   // Auto-refresh data every 30 seconds
   useEffect(() => {
@@ -445,12 +437,38 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [selectedTower, selectedTowerFilter]);
 
-  // Handle tower click
-  const handleTowerClick = (tower) => {
-    setSelectedTower(tower);
-    setShowModal(true);
-    setWaterDepletion(null);
-    fetchWaterDepletion(tower.id);
+  // Update selectedTower when towers data is refreshed (if modal is open)
+  useEffect(() => {
+    if (selectedTower && towers.length > 0) {
+      const updatedTower = towers.find(t => t.id === selectedTower.id);
+      if (updatedTower) {
+        setSelectedTower(updatedTower);
+      }
+    }
+  }, [towers]);
+
+  // Handle tower click - fetch fresh data from backend
+  const handleTowerClick = async (tower) => {
+    try {
+      // Set initial tower to show modal immediately
+      setSelectedTower(tower);
+      setShowModal(true);
+      setWaterDepletion(null);
+      fetchWaterDepletion(tower.id);
+
+      // Fetch fresh tower data from backend to get updated schedules
+      const response = await fetch(`/apis/getTower/${tower.id}`);
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        const freshTowerData = result.data?.data || result.data;
+        // Update selectedTower with fresh data
+        setSelectedTower(freshTowerData);
+      }
+    } catch (error) {
+      console.error('Error fetching fresh tower data:', error);
+      // Keep the existing tower data if fetch fails
+    }
   };
 
   // Close modal
@@ -623,22 +641,18 @@ export default function Dashboard() {
                   </div>
                   <span className="text-xs font-semibold text-cyan-600 bg-cyan-100 px-3 py-1 rounded-full">Live</span>
                 </div>
-<<<<<<< Updated upstream
-                <p className="text-gray-600 font-medium mb-2">Water Level</p>
-                {loading ? (
-                  <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
-                ) : (
-                  <h2 className={`text-3xl md:text-4xl font-bold ${getTextColor('water', sensorData.targetWaterLevel, null)}`}>
-                    {Math.round(Math.max(0, Math.min(100, sensorData.targetWaterLevel)))}<span className="text-xl md:text-2xl">%</span>
-=======
                 <p className="text-gray-600 font-medium mb-2">Water Temperature</p>
                 {loading ? (
                   <div className="h-10 bg-gray-200 animate-pulse rounded-xl mt-2"></div>
                 ) : (
-                  <h2 className="text-3xl md:text-4xl font-bold text-cyan-600">
-                    {Number(sensorData.waterTemperatureC).toFixed(1)}<span className="text-xl md:text-2xl">°C</span>
->>>>>>> Stashed changes
-                  </h2>
+                  <div>
+                    <h2 className="text-3xl md:text-4xl font-bold text-cyan-700">
+                      {sensorData.waterTemperatureC.toFixed(1)}<span className="text-xl md:text-2xl">°C</span>
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {(sensorData.waterTemperatureC * 9/5 + 32).toFixed(1)}°F
+                    </p>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -787,7 +801,7 @@ export default function Dashboard() {
                   {/* Water Fill */}
                   <div
                     className="absolute bottom-0 left-0 w-full bg-cyan-500 transition-all duration-1000 ease-in-out overflow-hidden"
-                    style={{ height: `${Math.max(0, Math.min(100, waterLevel))}%` }}
+                    style={{ height: `${Math.max(0, Math.min(100, sensorData.targetWaterLevel))}%` }}
                   >
                     {/* Waves */}
                     <svg
@@ -824,7 +838,7 @@ export default function Dashboard() {
 
                   {/* Percentage Label */}
                   <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-gray-700 z-10">
-                    {Math.round(waterLevel)}%
+                    {Math.round(sensorData.targetWaterLevel)}%
                   </div>
                   </div>
                 </div>
@@ -1058,7 +1072,7 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <p className="text-sm text-gray-600">
-                          <strong>Time:</strong> {schedule.time || 'Not set'}
+                          <strong>Time:</strong> {schedule.start_time || schedule.time || 'Not set'}
                         </p>
                         <p className="text-sm text-gray-600">
                           <strong>Duration:</strong> {schedule.duration || 'N/A'} minutes
