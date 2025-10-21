@@ -4,7 +4,7 @@ import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
-import { TrendingUp, Droplets, Activity, Leaf, AlertCircle, Info, Thermometer } from "lucide-react";
+import { TrendingUp, Droplets, Activity, Leaf, AlertCircle, Info, Thermometer, Loader2 } from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,6 +15,7 @@ import {
   Legend,
 } from "chart.js";
 import { useEffect, useState } from "react";
+import withAuth from "@/components/withAuth";
 
 const LineChart = dynamic(
   () => import("react-chartjs-2").then((mod) => mod.Line),
@@ -109,7 +110,8 @@ const normalizeWaterLevel = (value) => {
   return Math.max(0, Math.min(100, n));
 };
 
-export default function Dashboard() {
+
+function Dashboard() {
   // State for sensor data
   const [sensorData, setSensorData] = useState({
     phValue: 0,
@@ -1264,3 +1266,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+export default withAuth(Dashboard);

@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, KeyRound, Camera, User, UserCircle, Mail, Shield, Calendar } from 'lucide-react';
+import { CheckCircle, KeyRound, Camera, User, UserCircle, Mail, Shield, Calendar, Loader2 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
+import withAuth from '@/components/withAuth';
 
-
-export default function MyAccount() {
+function MyAccount() {
   const [user, setUser] = useState({
     fullName: '',
     email: '',
@@ -45,21 +45,11 @@ export default function MyAccount() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, box: null });
   const containerSize = { w: 400, h: 400 };
 
-  // Attach Authorization header from localStorage so API routes can fallback if server session is missing
-  const getAuthHeaders = () => {
-    try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      return token ? { Authorization: `Bearer ${token}` } : {};
-    } catch {
-      return {};
-    }
-  };
-
   const fetchProfilePicture = async () => {
     try {
       const res = await fetch(`/apis/profilePicture`, { 
         method: 'GET',
-        headers: { ...getAuthHeaders() },
+        credentials: 'include',
       });
       if (res.ok) {
         const blob = await res.blob();
@@ -288,7 +278,7 @@ export default function MyAccount() {
       const formData = new FormData();
       const croppedFile = new File([blob], pendingFile.name.replace(/\.[^/.]+$/, '') + '_cropped.jpg', { type: 'image/jpeg' });
       formData.append('file', croppedFile);
-      const res = await fetch(`/apis/uploadProfilePicture`, { method: 'POST', headers: { ...getAuthHeaders() }, body: formData });
+      const res = await fetch(`/apis/uploadProfilePicture`, { method: 'POST', credentials: 'include', body: formData });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         const msg = data?.message || 'Failed to upload image';
@@ -719,3 +709,5 @@ export default function MyAccount() {
     </div>
   );
 }
+
+export default withAuth(MyAccount);

@@ -3,13 +3,14 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
-import { Clock, RefreshCw, ChevronLeft, ChevronRight, X, Plus, Leaf, ArrowLeft, Calendar, Info } from 'lucide-react';
+import { Clock, RefreshCw, ChevronLeft, ChevronRight, X, Plus, Leaf, ArrowLeft, Calendar, Info, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import DeviceAssignmentModal from '@/components/DeviceAssignmentModal';
+import withAuth from '@/components/withAuth';
 
-export default function CreateTower() {
+const CreateTower = () => {
   const router = useRouter();
 
   const [plants, setPlants] = useState([]);
@@ -1182,4 +1183,6 @@ export default function CreateTower() {
       />
     </div>
   );
-}
+};
+
+export default withAuth(CreateTower);

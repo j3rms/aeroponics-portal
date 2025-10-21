@@ -4,7 +4,8 @@ import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { FileText, ChevronLeft, ChevronRight, Droplets, Activity, Gauge, Thermometer, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight, Droplets, Activity, Gauge, Thermometer, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import withAuth from "@/components/withAuth";
 
 // Data is now fetched from backend via /apis/getLogs
 
@@ -71,7 +72,7 @@ const getBadgeColor = (type, value, plantName) => {
   }
 };
 
-export default function Logs() {
+function Logs() {
   const [currentPage, setCurrentPage] = useState(1);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -432,3 +433,5 @@ export default function Logs() {
     </div>
   );
 }
+
+export default withAuth(Logs);

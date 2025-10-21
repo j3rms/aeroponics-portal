@@ -52,7 +52,6 @@ export default function Login() {
         toast.remove();
   
         if (response.ok && result.success) {
-          document.cookie = `user=${JSON.stringify(result.user)}; path=/; max-age=3600`;
           toast.success("Signed in successfully!", {
             duration: 2000,
             position: "top-center",

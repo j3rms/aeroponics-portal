@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Loader2, Info, HelpCircle, RefreshCw, Sparkles, Leaf } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
+import withAuth from "@/components/withAuth";
 
-export default function AboutPage() {
+function AboutPage() {
   const [openIndex, setOpenIndex] = useState(null);
   const [aboutData, setAboutData] = useState([]);
   const [faqs, setFaqs] = useState([]);
@@ -274,3 +275,5 @@ export default function AboutPage() {
     </div>
   );
 }
+
+export default withAuth(AboutPage);

@@ -7,8 +7,9 @@ import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import Link from "next/link";
 import { toast } from 'react-hot-toast';
+import withAuth from "@/components/withAuth";
 
-export default function ManageTower() {
+function ManageTower() {
   const [towers, setTowers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingTower, setEditingTower] = useState(null);
@@ -665,3 +666,5 @@ export default function ManageTower() {
     </div>
   );
 }
+
+export default withAuth(ManageTower);
