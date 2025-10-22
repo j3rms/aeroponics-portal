@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, KeyRound, Camera, User, UserCircle, Mail, Shield, Calendar, Loader2 } from 'lucide-react';
-import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
 import withAuth from '@/components/withAuth';
 
@@ -377,7 +376,6 @@ function MyAccount() {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
       {/* Sidebar */}
-      <Sidebar />
 
       <div className="flex flex-col flex-1">
         {/* Confirmation Dialog */}

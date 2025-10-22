@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Loader2, Info, HelpCircle, RefreshCw, Sparkles, Leaf } from "lucide-react";
-import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import withAuth from "@/components/withAuth";
 
@@ -56,7 +55,7 @@ function AboutPage() {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
       {/* Sidebar */}
-      <Sidebar />
+      
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">

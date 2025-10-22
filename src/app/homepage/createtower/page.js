@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Sidebar from '@/components/sidebar';
 import Footer from '@/components/footer';
 import { Clock, RefreshCw, ChevronLeft, ChevronRight, X, Plus, Leaf, ArrowLeft, Calendar, Info, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -32,6 +31,7 @@ const CreateTower = () => {
   const [wateringTimes, setWateringTimes] = useState([]); // Array of {time: string, duration: number}
   const [customFrequency, setCustomFrequency] = useState('');
   const [showFrequencyModal, setShowFrequencyModal] = useState(false);
+  const [durationText, setDurationText] = useState('');
 
   // Calendar states
   const [startDate, setStartDate] = useState(null);
@@ -289,16 +289,45 @@ const CreateTower = () => {
         return;
       }
 
-      // Create custom plant object with backend ID
-      const customPlant = {
-        id: result.data?.data?.id || Date.now(), // Use backend ID or fallback
-        name: customName,
-        ph: `${customPhMin} - ${customPhMax}`,
-        ppm: `${customPpmMin} - ${customPpmMax} ppm`,
-      };
+      // Immediately refresh plants so the new custom plant can be selected without page refresh
+      try {
+        setPlantsLoading(true);
+        const plantsRes = await fetch('/apis/getAllPlants');
+        const plantsResult = await plantsRes.json();
 
-      setCustomPlantData(customPlant);
-      setSelectedPlant('custom');
+        if ((plantsResult.success || plantsResult.status) && plantsResult.data) {
+          const plantsArray = Array.isArray(plantsResult.data) ? plantsResult.data : plantsResult.data.data;
+          if (Array.isArray(plantsArray)) {
+            const transformedPlants = plantsArray
+              .map(plant => {
+                const plantUserId = plant.user?.id;
+                const isCustomPlant = plantUserId && plantUserId !== 1;
+                return {
+                  id: plant.id,
+                  name: plant.name,
+                  ph: `${plant.min_ph_level} - ${plant.max_ph_level}`,
+                  ppm: `${plant.min_ppm} - ${plant.max_ppm} ppm`,
+                  isCustom: isCustomPlant,
+                  userId: plantUserId
+                };
+              })
+              .filter(plant => {
+                if (!plant.userId || plant.userId === 1) return true;
+                return plant.userId === currentUserId;
+              });
+
+            setPlants(transformedPlants);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to refresh plants after creating custom plant', e);
+      } finally {
+        setPlantsLoading(false);
+      }
+
+      // Select the newly created custom plant by name
+      setSelectedPlant(customName);
+      setCustomPlantData(null);
       setShowCustomModal(false);
 
       // Clear form
@@ -325,6 +354,16 @@ const CreateTower = () => {
     }
     return times;
   };
+
+  // Keep duration text in sync when number of sessions changes
+  useEffect(() => {
+    if (wateringTimes.length > 0) {
+      const d = wateringTimes[0].duration;
+      setDurationText(d === undefined || d === null ? '' : String(d));
+    } else {
+      setDurationText('');
+    }
+  }, [wateringTimes.length]);
 
   // Frequency dropdown
   const handleFrequencyChange = (value) => {
@@ -405,6 +444,45 @@ const CreateTower = () => {
     const updated = [...wateringTimes];
     updated[index] = { ...updated[index], time: value };
     setWateringTimes(updated);
+  };
+
+  // Duration input handler: allow erase, accept only 1..120, propagate to all sessions
+  const handleDurationTextChange = (value) => {
+    setDurationText(value);
+    if (value === '') {
+      const updated = wateringTimes.map(s => ({ ...s, duration: undefined }));
+      setWateringTimes(updated);
+      return;
+    }
+    const n = parseInt(value, 10);
+    if (Number.isNaN(n)) {
+      const updated = wateringTimes.map(s => ({ ...s, duration: undefined }));
+      setWateringTimes(updated);
+      return;
+    }
+    if (n > 0 && n <= 120) {
+      const updated = wateringTimes.map(s => ({ ...s, duration: n }));
+      setWateringTimes(updated);
+    } else {
+      // mark as invalid (0 or below / > 120) so submission will not pass
+      const updated = wateringTimes.map(s => ({ ...s, duration: 0 }));
+      setWateringTimes(updated);
+    }
+  };
+
+  const handleNumericKeyDown = (e) => {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+    if (allowed.includes(e.key)) return;
+    if ((e.ctrlKey || e.metaKey) && ['a','c','v','x','A','C','V','X'].includes(e.key)) return;
+    if (/^[0-9]$/.test(e.key)) return;
+    e.preventDefault();
+  };
+
+  const handleNumericPaste = (e) => {
+    const text = e.clipboardData.getData('text');
+    const digits = text.replace(/\D/g, '');
+    e.preventDefault();
+    handleDurationTextChange(digits);
   };
 
   // Update individual watering duration
@@ -552,7 +630,6 @@ const CreateTower = () => {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
-      <Sidebar />
       <div className="flex flex-col flex-1">
         <main className="flex-1 max-w-3xl md:max-w-7xl mx-auto w-full px-4 md:px-10 py-8 md:py-12">
           {/* Header with decorative elements */}
@@ -806,11 +883,13 @@ const CreateTower = () => {
                     
                     <div className="flex items-center gap-2">
                       <input
-                        type="number"
-                        min="1"
-                        max="120"
-                        value={wateringTimes[0].duration}
-                        onChange={(e) => handleDurationChange(0, e.target.value)}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={durationText}
+                        onKeyDown={handleNumericKeyDown}
+                        onPaste={handleNumericPaste}
+                        onChange={(e) => handleDurationTextChange(e.target.value.replace(/\D/g, ''))}
                         className="w-20 px-3 py-2 rounded-lg border border-green-300 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm font-semibold"
                         placeholder="15"
                       />
@@ -834,7 +913,7 @@ const CreateTower = () => {
                             type="time"
                             value={schedule.time}
                             onChange={(e) => handleTimeChange(index, e.target.value)}
-                            step="3600"
+                            step="60"
                             className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
                             placeholder="Hour"
                           />

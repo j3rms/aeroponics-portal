@@ -1,6 +1,4 @@
 'use client';
-
-import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
@@ -210,7 +208,7 @@ function Logs() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
-      <Sidebar />
+      
       <div className="flex flex-col flex-1">
         <main className="flex-1 max-w-3xl md:max-w-7xl mx-auto w-full px-4 md:px-10 py-8 md:py-12">
           {/* Header with decorative elements */}

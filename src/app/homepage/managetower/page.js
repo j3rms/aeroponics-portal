@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, Plus, X, Building2, Leaf, Loader2, Clock, Calendar, Droplets, RefreshCw, Edit3, Cpu, Info } from "lucide-react";
 import { motion } from "framer-motion";
-import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import Link from "next/link";
 import { toast } from 'react-hot-toast';
@@ -54,17 +53,8 @@ function ManageTower() {
       const towersResponse = await towersFromApi.json();
 
       if (towersResponse.success && towersResponse.data && towersResponse.data.data) {
-        // Filter out archived towers (status = false means archived/inactive)
-        // When backend supports enum, filter out status = 'Archived'
-        const activeTowers = towersResponse.data.data.filter(tower => {
-          // If status is boolean, show only active (true)
-          if (typeof tower.status === 'boolean') {
-            return tower.status === true;
-          }
-          // If status is enum, exclude 'Archived' towers
-          return tower.status !== 'Archived' && tower.status !== 'ARCHIVED';
-        });
-        setTowers(activeTowers);
+        // Show all towers (active and inactive) in Manage Tower
+        setTowers(towersResponse.data.data);
       }
     } catch (error) {
       console.error("Error fetching towers:", error);
@@ -129,8 +119,8 @@ function ManageTower() {
         throw new Error(err.message || "Failed to archive tower");
       }
       
-      // Remove from UI (tower is now archived)
-      setTowers((prev) => prev.filter((t) => t.id !== tower.id));
+      // Keep in UI but mark as inactive
+      setTowers((prev) => prev.map((t) => t.id === tower.id ? { ...t, status: false } : t));
       
       toast.success(`"${tower.name}" has been archived successfully!`);
       setTowerToDelete(null);
@@ -219,8 +209,49 @@ function ManageTower() {
     setShowDeviceModal(false);
     setDeviceAssignTower(null);
     if (assigned) {
-      // Refresh towers list after device assignment
+      // Mark current editing tower as active and refresh towers list
+      setEditingTower((prev) => (prev ? { ...prev, status: true } : prev));
       fetchTowers();
+      toast.success('Device assigned. You can now activate this tower.');
+    } else {
+      // Keep tower inactive until a device is assigned
+      setEditingTower((prev) => (prev ? { ...prev, status: false } : prev));
+      toast.error('Tower remains inactive until a device is assigned.');
+    }
+  };
+
+  // Check if the tower already has an assigned device
+  const checkTowerHasDevice = async (towerId) => {
+    try {
+      const res = await fetch(`/apis/getTowerDevices/${towerId}`);
+      const result = await res.json();
+      if (res.ok && result.success) {
+        const devices = result.data?.data || result.data;
+        return Array.isArray(devices) && devices.length > 0;
+      }
+    } catch (e) {
+      console.error('Error checking tower devices:', e);
+    }
+    return false;
+  };
+
+  // Handle toggling status with device assignment requirement
+  const handleToggleStatus = async () => {
+    if (!editingTower) return;
+    const nextStatus = !editingTower.status;
+    if (nextStatus) {
+      // If activating, ensure a device is assigned
+      const hasDevice = await checkTowerHasDevice(editingTower.id);
+      if (hasDevice) {
+        setEditingTower((prev) => ({ ...prev, status: true }));
+      } else {
+        setDeviceAssignTower({ id: editingTower.id, name: editingTower.name });
+        setShowDeviceModal(true);
+        toast('Assign a device to activate this tower.');
+      }
+    } else {
+      // Deactivating is allowed directly
+      setEditingTower((prev) => ({ ...prev, status: false }));
     }
   };
 
@@ -281,6 +312,29 @@ function ManageTower() {
       toast.loading('Updating tower...');
 
       // Prepare payload matching backend TowerRO structure
+      const isActive = editingTower.status;
+      const formatTimeWithSeconds = (time) => {
+        if (!time) return null;
+        return time.length === 5 ? `${time}:00` : time;
+      };
+      const schedulesPayload = isActive
+        ? editingTower.wateringTimes.slice(0, editingTower.frequency).map((time, index) => ({
+            id: editingTower.schedules?.[index]?.id || null,
+            start_time: `${time}:00`,
+          }))
+        : (editingTower.schedules || [])
+            .map((schedule, index) => {
+              const rawTime =
+                editingTower.wateringTimes?.[index] || schedule?.start_time || schedule?.time;
+              const formatted = formatTimeWithSeconds(rawTime);
+              if (!formatted) return null;
+              return {
+                id: schedule?.id || null,
+                start_time: formatted,
+              };
+            })
+            .filter(Boolean);
+
       const payload = {
         id: editingTower.id,
         user: editingTower.user, // Send full user object
@@ -291,10 +345,7 @@ function ManageTower() {
         end_date: editingTower.endDate,
         status: editingTower.status, // Send as boolean
         watering_duration: editingTower.wateringDuration || 15,
-        schedules: editingTower.wateringTimes.slice(0, editingTower.frequency).map((time, index) => ({
-          id: editingTower.schedules?.[index]?.id || null,
-          start_time: time + ":00",
-        })),
+        schedules: schedulesPayload,
       };
 
       console.log('Updating tower with payload:', JSON.stringify(payload, null, 2));
@@ -325,6 +376,13 @@ function ManageTower() {
       toast.dismiss();
       const errorMsg = error.message || 'Unknown error occurred';
       toast.error(`Failed to update tower: ${errorMsg}`);
+      // If activation failed due to missing device, prompt assignment
+      if (editingTower?.status && /device/i.test(errorMsg) && /assign/i.test(errorMsg)) {
+        setEditingTower((prev) => (prev ? { ...prev, status: false } : prev));
+        setDeviceAssignTower({ id: editingTower.id, name: editingTower.name });
+        setShowDeviceModal(true);
+        toast('Assign a device to activate this tower.');
+      }
     } finally {
       setSaving(false);
     }
@@ -342,9 +400,6 @@ function ManageTower() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
-      {/* Sidebar */}
-      <Sidebar />
-
       <div className="flex flex-col flex-1">
         <main className="flex-1 max-w-3xl md:max-w-7xl mx-auto w-full px-4 md:px-10 py-8 md:py-12">
           {/* Header with decorative elements */}
@@ -545,7 +600,8 @@ function ManageTower() {
                       type="text"
                       value={editingTower.name}
                       onChange={(e) => handleEditChange("name", e.target.value)}
-                      className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                      disabled={!editingTower.status}
+                      className={`block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium ${!editingTower.status ? "bg-gray-100 cursor-not-allowed text-gray-500 focus:ring-0 focus:border-gray-200" : ""}`}
                       placeholder="Enter tower name"
                     />
                   </div>
@@ -579,7 +635,7 @@ function ManageTower() {
                     <div className="flex items-center gap-4 bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
                       <button
                         type="button"
-                        onClick={() => handleEditChange("status", !editingTower.status)}
+                        onClick={handleToggleStatus}
                         className={`relative w-14 h-7 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-green-400 ${
                           editingTower.status ? "bg-green-500" : "bg-gray-300"
                         }`}
@@ -610,7 +666,8 @@ function ManageTower() {
                       onChange={(e) => handleEditChange("waterLevel", parseInt(e.target.value))}
                       min="1"
                       max="10"
-                      className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                      disabled={!editingTower.status}
+                      className={`block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium ${!editingTower.status ? "bg-gray-100 cursor-not-allowed text-gray-500 focus:ring-0 focus:border-gray-200" : ""}`}
                       placeholder="5"
                     />
                     <p className="text-xs text-gray-500 mt-2">
@@ -644,9 +701,12 @@ function ManageTower() {
                         type="date"
                         value={editingTower.endDate}
                         onChange={(e) => handleEditChange("endDate", e.target.value)}
-                        className={`block w-full rounded-xl border-2 px-4 py-3 focus:ring-2 focus:ring-green-500 transition-all font-medium ${
-                          isEndDateInvalid() ? "border-red-500 focus:border-red-500" : "border-gray-200 focus:border-green-500"
-                        }`}
+                        disabled={!editingTower.status}
+                        className={`block w-full rounded-xl border-2 px-4 py-3 focus:ring-2 transition-all font-medium ${
+                          isEndDateInvalid()
+                            ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-200 focus:ring-green-500 focus:border-green-500"
+                        } ${!editingTower.status ? "bg-gray-100 cursor-not-allowed text-gray-500 focus:ring-0 focus:border-gray-200" : ""}`}
                       />
                       {isEndDateInvalid() && (
                         <p className="text-red-600 text-sm mt-2 font-medium">
@@ -656,77 +716,84 @@ function ManageTower() {
                     </div>
                   </div>
 
-                  {/* Frequency */}
-                  <div className="mb-4">
-                    <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
-                      <RefreshCw className="w-4 h-4 text-green-600" />
-                      Watering Frequency (times per day)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={editingTower.frequency}
-                      onChange={(e) => {
-                        const freq = Number(e.target.value) || 1;
-                        handleEditChange("frequency", freq);
-                        // Adjust watering times array
-                        const currentTimes = editingTower.wateringTimes || [];
-                        if (freq > currentTimes.length) {
-                          handleEditChange("wateringTimes", [...currentTimes, ...Array(freq - currentTimes.length).fill("")]);
-                        } else {
-                          handleEditChange("wateringTimes", currentTimes.slice(0, freq));
-                        }
-                      }}
-                      className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
-                    />
-                    <p className="text-sm text-gray-600 mt-2 font-medium">
-                      <span className="text-green-700">{editingTower.frequency}</span> times per day
-                    </p>
-                  </div>
-
-                  {/* Watering Duration */}
-                  <div className="mb-4">
-                    <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
-                      <Clock className="w-4 h-4 text-green-600" />
-                      Watering Duration (minutes per session)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="60"
-                      value={editingTower.wateringDuration}
-                      onChange={(e) => handleEditChange("wateringDuration", Number(e.target.value) || 15)}
-                      className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
-                    />
-                    <p className="text-sm text-gray-600 mt-2 font-medium">
-                      Each watering session lasts <span className="text-green-700">{editingTower.wateringDuration}</span> minutes
-                    </p>
-                  </div>
-
-                  {/* Watering Times */}
-                  <div className="mb-4">
-                    <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
-                      <Clock className="w-4 h-4 text-green-600" />
-                      Watering Times
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {Array.from({ length: editingTower.frequency }).map((_, index) => (
-                        <div key={index} className="flex flex-col">
-                          <span className="text-xs font-semibold text-gray-600 mb-2">Time {index + 1}</span>
-                          <input
-                            type="time"
-                            value={editingTower.wateringTimes?.[index] || ""}
-                            onChange={(e) => {
-                              const updatedTimes = [...(editingTower.wateringTimes || [])];
-                              updatedTimes[index] = e.target.value;
-                              handleEditChange("wateringTimes", updatedTimes);
-                            }}
-                            className="px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
-                          />
-                        </div>
-                      ))}
+                  {!editingTower.status && (
+                    <div className="mb-6 rounded-xl border-2 border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-medium text-yellow-800 flex gap-2 items-start">
+                      <Info className="w-4 h-4 mt-0.5" />
+                      <span>Scheduling fields are disabled while the tower is inactive.</span>
                     </div>
-                  </div>
+                  )}
+
+                  {editingTower.status && (
+                    <>
+                      <div className="mb-4">
+                        <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+                          <RefreshCw className="w-4 h-4 text-green-600" />
+                          Watering Frequency (times per day)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={editingTower.frequency}
+                          onChange={(e) => {
+                            const freq = Number(e.target.value) || 1;
+                            handleEditChange("frequency", freq);
+                            const currentTimes = editingTower.wateringTimes || [];
+                            if (freq > currentTimes.length) {
+                              handleEditChange("wateringTimes", [...currentTimes, ...Array(freq - currentTimes.length).fill("")]);
+                            } else {
+                              handleEditChange("wateringTimes", currentTimes.slice(0, freq));
+                            }
+                          }}
+                          className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                        />
+                        <p className="text-sm text-gray-600 mt-2 font-medium">
+                          <span className="text-green-700">{editingTower.frequency}</span> times per day
+                        </p>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+                          <Clock className="w-4 h-4 text-green-600" />
+                          Watering Duration (minutes per session)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="60"
+                          value={editingTower.wateringDuration}
+                          onChange={(e) => handleEditChange("wateringDuration", Number(e.target.value) || 15)}
+                          className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                        />
+                        <p className="text-sm text-gray-600 mt-2 font-medium">
+                          Each watering session lasts <span className="text-green-700">{editingTower.wateringDuration}</span> minutes
+                        </p>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+                          <Clock className="w-4 h-4 text-green-600" />
+                          Watering Times
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {Array.from({ length: editingTower.frequency }).map((_, index) => (
+                            <div key={index} className="flex flex-col">
+                              <span className="text-xs font-semibold text-gray-600 mb-2">Time {index + 1}</span>
+                              <input
+                                type="time"
+                                value={editingTower.wateringTimes?.[index] || ""}
+                                onChange={(e) => {
+                                  const updatedTimes = [...(editingTower.wateringTimes || [])];
+                                  updatedTimes[index] = e.target.value;
+                                  handleEditChange("wateringTimes", updatedTimes);
+                                }}
+                                className="px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Fixed Footer Buttons */}

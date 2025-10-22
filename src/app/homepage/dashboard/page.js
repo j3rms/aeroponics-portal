@@ -1,6 +1,4 @@
 'use client';
-
-import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
@@ -536,7 +534,6 @@ function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
       {/* Sidebar */}
-      <Sidebar />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">

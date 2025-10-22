@@ -16,8 +16,14 @@ export async function POST(req) {
 
     const body = await req.json();
 
-    // Validate required fields
-    if (!body.name || !body.min_ph_level || !body.max_ph_level || !body.min_ppm || !body.max_ppm) {
+    // Validate required fields (avoid falsy checks so 0 is handled predictably)
+    if (
+      !body.name ||
+      body.min_ph_level == null ||
+      body.max_ph_level == null ||
+      body.min_ppm == null ||
+      body.max_ppm == null
+    ) {
       return NextResponse.json(
         { success: false, message: "All plant fields are required" },
         { status: 400 }
@@ -28,11 +34,10 @@ export async function POST(req) {
     const payload = {
       id: 0, // New plant
       name: body.name,
-      min_ph_level: parseInt(body.min_ph_level),
-      max_ph_level: parseInt(body.max_ph_level),
+      min_ph_level: parseFloat(body.min_ph_level),
+      max_ph_level: parseFloat(body.max_ph_level),
       min_ppm: parseInt(body.min_ppm),
-      max_ppm: parseInt(body.max_ppm),
-      user: { id: userId }
+      max_ppm: parseInt(body.max_ppm)
     };
 
     // Call backend to create plant
