@@ -71,13 +71,6 @@ export async function GET(request) {
     };
     
     if (data.status && data.data && data.data.length > 0) {
-      // Convert water level enum to percentage
-      const waterLevelMap = {
-        'HIGH': 100,
-        'MEDIUM': 50,
-        'LOW': 25
-      };
-      
       if (towerId) {
         // Specific tower - filter and get recent data
         const filteredData = data.data.filter(log => log.tower?.id === parseInt(towerId));
@@ -98,7 +91,7 @@ export async function GET(request) {
           }),
           phData: recentData.map(log => parseFloat(log.ph_level)),
           ppmData: recentData.map(log => parseFloat(log.ppm)),
-          waterLevelData: recentData.map(log => waterLevelMap[log.water_level] || 0),
+          waterLevelData: recentData.map(log => parseFloat(log.water_level || 0)),
           temperatureData: recentData.map(log => parseFloat(log.water_temperature || 0))
         };
       } else {
@@ -141,7 +134,7 @@ export async function GET(request) {
           }),
           waterLevelData: sortedTimes.map(time => {
             const logs = timeGroups.get(time);
-            const avgWaterLevel = logs.reduce((sum, log) => sum + (waterLevelMap[log.water_level] || 0), 0) / logs.length;
+            const avgWaterLevel = logs.reduce((sum, log) => sum + parseFloat(log.water_level || 0), 0) / logs.length;
             return avgWaterLevel;
           }),
           temperatureData: sortedTimes.map(time => {

@@ -4,7 +4,7 @@ import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
-import { TrendingUp, Droplets, Activity, Leaf, AlertCircle, Info, Thermometer, Loader2 } from "lucide-react";
+import { TrendingUp, Droplets, Activity, Leaf, AlertCircle, Info, Thermometer, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -97,17 +97,35 @@ const getTextColor = (type, value, thresholds) => {
   }
 };
 
-// Ensure water level values are normalized to 0-100%
+// Convert water level sensor value (1-10) to visual percentage
+// 1-3 (High) = 80-100%, 4-7 (Medium) = 40-70%, 8-10 (Low) = 10-30%
 const normalizeWaterLevel = (value) => {
   if (value === null || value === undefined) return 0;
-  let n = Number(value);
-  if (Number.isNaN(n)) return 0;
-  // If API returns 0-1, convert to percent
-  if (n <= 1) n = n * 100;
-  // If API returns an oversized number (e.g., 1428571), scale down until <= 100
-  while (n > 100) n = n / 10;
-  // Clamp to [0, 100]
-  return Math.max(0, Math.min(100, n));
+  const numValue = parseInt(value);
+  if (Number.isNaN(numValue) || numValue < 1 || numValue > 10) return 50; // default to medium
+  
+  // Invert the scale: lower sensor values = higher water level
+  // 1 = 100%, 2 = 90%, 3 = 80%, 4 = 70%, 5 = 60%, 6 = 50%, 7 = 40%, 8 = 30%, 9 = 20%, 10 = 10%
+  return Math.max(10, Math.min(100, (11 - numValue) * 10));
+};
+
+// Helper function to convert numeric water level to text
+const getWaterLevelText = (value) => {
+  // If already text enum, return formatted
+  if (typeof value === 'string' && ['HIGH', 'MEDIUM', 'LOW'].includes(value.toUpperCase())) {
+    return value.charAt(0) + value.slice(1).toLowerCase(); // Capitalize first letter
+  }
+  
+  // Convert numeric (or numeric string) to text based on range: 1-3 HIGH, 4-7 MEDIUM, 8-10 LOW
+  const numValue = parseInt(value);
+  if (!isNaN(numValue)) {
+    if (numValue >= 1 && numValue <= 3) return 'High';
+    if (numValue >= 4 && numValue <= 7) return 'Medium';
+    if (numValue >= 8 && numValue <= 10) return 'Low';
+  }
+  
+  // Default to Medium if invalid
+  return 'Medium';
 };
 
 
@@ -117,6 +135,7 @@ function Dashboard() {
     phValue: 0,
     ppmValue: 0,
     targetWaterLevel: 0,
+    rawWaterLevel: 0,
     waterTemperatureC: 22.0,
   });
   const [loading, setLoading] = useState(true);
@@ -136,8 +155,10 @@ function Dashboard() {
   const [selectedTowerFilter, setSelectedTowerFilter] = useState(''); // Will be set to most recent tower
   const [currentPlantName, setCurrentPlantName] = useState(null);
   const [plantThresholds, setPlantThresholds] = useState(null);
-  const [activeTowerFilter, setActiveTowerFilter] = useState('all');
+  const [activeTowerFilter, setActiveTowerFilter] = useState('most_recent');
   const [filteredTowers, setFilteredTowers] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const towersPerPage = 4;
 
   // Fetch sensor data from backend (optionally filtered by tower)
   const fetchSensorData = async (towerId = null) => {
@@ -152,6 +173,7 @@ function Dashboard() {
           phValue: result.data.phValue || 0,
           ppmValue: result.data.ppmValue || 0,
           targetWaterLevel: normalizeWaterLevel(result.data.waterLevel),
+          rawWaterLevel: result.data.waterLevel || 0,
           waterTemperatureC: (
             result.data.waterTemperatureC ??
             result.data.temperatureC ??
@@ -386,7 +408,7 @@ function Dashboard() {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   };
 
-  // Filter towers based on active tower filter
+  // Filter and sort towers based on active tower filter
   useEffect(() => {
     if (towers.length === 0) {
       setFilteredTowers([]);
@@ -395,33 +417,51 @@ function Dashboard() {
 
     let filtered = [...towers];
 
-    switch (activeTowerFilter) {
-      case 'all':
-        // Show all towers
-        break;
-      default:
-        // Check if it's a plant filter
-        if (activeTowerFilter.startsWith('plant_')) {
-          const plantName = activeTowerFilter.replace('plant_', '');
-          filtered = towers.filter(tower => tower.plant?.name === plantName);
-        }
-        // Check if it's a month filter
-        else if (activeTowerFilter.startsWith('month_')) {
-          const monthYear = activeTowerFilter.replace('month_', '');
-          const [year, month] = monthYear.split('-');
-          filtered = towers.filter(tower => {
-            if (!tower.startDate) return false;
-            const startDate = new Date(tower.startDate);
-            const towerMonth = String(startDate.getMonth() + 1).padStart(2, '0');
-            const towerYear = startDate.getFullYear().toString();
-            return towerYear === year && towerMonth === month;
-          });
-        }
-        break;
+    // Sort based on selected option using created_at from database
+    if (activeTowerFilter === 'most_recent') {
+      // Sort by created_at (most recent first)
+      filtered.sort((a, b) => {
+        // Prioritize created_at field from database, fallback to other date fields
+        const dateStrA = a.created_at || a.createdAt || a.start_date || a.startDate;
+        const dateStrB = b.created_at || b.createdAt || b.start_date || b.startDate;
+        
+        const dateA = new Date(dateStrA || 0);
+        const dateB = new Date(dateStrB || 0);
+        
+        return dateB.getTime() - dateA.getTime(); // Most recent first (larger timestamp first)
+      });
+    } else if (activeTowerFilter === 'oldest') {
+      // Sort by created_at (oldest first)
+      filtered.sort((a, b) => {
+        // Prioritize created_at field from database, fallback to other date fields
+        const dateStrA = a.created_at || a.createdAt || a.start_date || a.startDate;
+        const dateStrB = b.created_at || b.createdAt || b.start_date || b.startDate;
+        
+        const dateA = new Date(dateStrA || 0);
+        const dateB = new Date(dateStrB || 0);
+        
+        return dateA.getTime() - dateB.getTime(); // Oldest first (smaller timestamp first)
+      });
     }
 
     setFilteredTowers(filtered);
+    setCurrentPage(0); // Reset to first page when filter changes
   }, [towers, activeTowerFilter]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredTowers.length / towersPerPage);
+  const startIndex = currentPage * towersPerPage;
+  const endIndex = startIndex + towersPerPage;
+  const currentTowers = filteredTowers.slice(startIndex, endIndex);
+
+  // Navigation handlers
+  const handlePrevPage = () => {
+    setCurrentPage(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+  };
 
 
   // Auto-refresh data every 30 seconds
@@ -490,7 +530,7 @@ function Dashboard() {
   // Format water level
   const formatWaterLevel = (level) => {
     if (!level) return 'N/A';
-    return level.replace('_', ' ');
+    return getWaterLevelText(level);
   };
 
   return (
@@ -838,9 +878,9 @@ function Dashboard() {
                     </svg>
                   </div>
 
-                  {/* Percentage Label */}
+                  {/* Water Level Label */}
                   <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-gray-700 z-10">
-                    {Math.round(sensorData.targetWaterLevel)}%
+                    {getWaterLevelText(sensorData.rawWaterLevel)}
                   </div>
                   </div>
                 </div>
@@ -864,26 +904,27 @@ function Dashboard() {
                 </h2>
               </div>
               
-              {/* Active Tower Filter Dropdown */}
-              <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm px-3 md:px-6 py-2 md:py-3 rounded-2xl shadow-lg border border-green-100 w-full md:w-auto">
-                <label className="text-sm font-semibold text-gray-700">Filter:</label>
-                <select
-                  value={activeTowerFilter}
-                  onChange={(e) => handleActiveTowerFilterChange(e.target.value)}
-                  className="px-4 py-2 border-2 border-green-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium text-gray-700 w-full md:min-w-[200px] cursor-pointer hover:border-green-300 transition-colors"
-                >
-                  <option value="all">🌍 All Towers</option>
-                  {getAvailableMonths().map((monthYear) => (
-                    <option key={monthYear} value={`month_${monthYear}`}>
-                      📅 {formatMonthDisplay(monthYear)}
-                    </option>
-                  ))}
-                  {getUniquePlantNames().map((plantName) => (
-                    <option key={plantName} value={`plant_${plantName}`}>
-                      🌱 {plantName} Only
-                    </option>
-                  ))}
-                </select>
+              {/* Active Tower Sort Dropdown */}
+              <div className="relative group">
+                <div className="flex items-center gap-2 bg-gradient-to-br from-white to-green-50/30 backdrop-blur-sm px-4 md:px-5 py-2.5 md:py-3 rounded-2xl shadow-md hover:shadow-xl border-2 border-green-200/60 transition-all duration-300 w-full md:w-auto">
+                  <div className="flex items-center gap-2 text-green-700">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                    </svg>
+                    <span className="text-sm font-semibold hidden md:inline">Sort:</span>
+                  </div>
+                  <select
+                    value={activeTowerFilter}
+                    onChange={(e) => handleActiveTowerFilterChange(e.target.value)}
+                    className="bg-transparent outline-none text-sm font-semibold text-gray-700 cursor-pointer appearance-none pr-8 min-w-[160px] md:min-w-[180px]"
+                  >
+                    <option value="most_recent">Most Recent First</option>
+                    <option value="oldest">Oldest First</option>
+                  </select>
+                  <svg className="w-4 h-4 text-green-600 absolute right-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
             </div>
             
@@ -908,8 +949,9 @@ function Dashboard() {
                 ))}
               </div>
             ) : filteredTowers.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredTowers.map((tower, index) => (
+              <div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {currentTowers.map((tower, index) => (
                   <motion.div
                     key={tower.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -947,7 +989,59 @@ function Dashboard() {
                       </div>
                     </div>
                   </motion.div>
-                ))}
+                  ))}
+                </div>
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 mt-8">
+                    <button
+                      onClick={handlePrevPage}
+                      disabled={currentPage === 0}
+                      className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                        currentPage === 0
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 hover:shadow-lg'
+                      }`}
+                    >
+                      <ChevronLeft className={`w-5 h-5 transition-transform ${
+                        currentPage !== 0 ? 'group-hover:-translate-x-1' : ''
+                      }`} />
+                      Previous
+                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                      {Array.from({ length: totalPages }, (_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setCurrentPage(i)}
+                          className={`w-10 h-10 rounded-xl font-semibold transition-all duration-300 ${
+                            currentPage === i
+                              ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg scale-110'
+                              : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300'
+                          }`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    <button
+                      onClick={handleNextPage}
+                      disabled={currentPage === totalPages - 1}
+                      className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                        currentPage === totalPages - 1
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 hover:shadow-lg'
+                      }`}
+                    >
+                      Next
+                      <ChevronRight className={`w-5 h-5 transition-transform ${
+                        currentPage !== totalPages - 1 ? 'group-hover:translate-x-1' : ''
+                      }`} />
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <motion.div
@@ -1151,7 +1245,7 @@ function Dashboard() {
                       <p className="text-xs text-gray-500 mb-1">Current Water Level</p>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-3xl font-bold text-cyan-700">{waterDepletion.currentWaterLevel}</p>
+                          <p className="text-3xl font-bold text-cyan-700">{getWaterLevelText(waterDepletion.currentWaterLevel)}</p>
                           <p className="text-sm text-gray-600 mt-1">
                             Approximately {waterDepletion.currentWaterPercentage}%
                           </p>

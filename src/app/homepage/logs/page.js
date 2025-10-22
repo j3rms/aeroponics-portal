@@ -22,16 +22,63 @@ const PLANT_THRESHOLDS = {
 // Water threshold
 const WATER_THRESHOLD = { min: 50 };
 
+// Convert water level sensor value (1-10) to visual percentage
+// 1-3 (High) = 80-100%, 4-7 (Medium) = 40-70%, 8-10 (Low) = 10-30%
+const normalizeWaterLevel = (value) => {
+  if (value === null || value === undefined) return 0;
+  const numValue = parseInt(value);
+  if (Number.isNaN(numValue) || numValue < 1 || numValue > 10) return 50; // default to medium
+  
+  // Invert the scale: lower sensor values = higher water level
+  // 1 = 100%, 2 = 90%, 3 = 80%, 4 = 70%, 5 = 60%, 6 = 50%, 7 = 40%, 8 = 30%, 9 = 20%, 10 = 10%
+  return Math.max(10, Math.min(100, (11 - numValue) * 10));
+};
+
+// Helper function to convert numeric water level to text
+const getWaterLevelText = (value) => {
+  // If already text, return formatted
+  if (typeof value === 'string') {
+    if (['HIGH', 'MEDIUM', 'LOW'].includes(value.toUpperCase())) {
+      return value.charAt(0) + value.slice(1).toLowerCase(); // Capitalize first letter
+    }
+    return value.replace('_', ' '); // Handle MEDIUM_HIGH format
+  }
+  
+  // Convert numeric to text based on range: 1-3 HIGH, 4-7 MEDIUM, 8-10 LOW
+  const numValue = parseInt(value);
+  if (numValue >= 1 && numValue <= 3) return 'High';
+  if (numValue >= 4 && numValue <= 7) return 'Medium';
+  if (numValue >= 8 && numValue <= 10) return 'Low';
+  
+  // Default to Medium if invalid
+  return 'Medium';
+};
+
 // Helper function to get badge color classes based on thresholds
 const getBadgeColor = (type, value, plantName) => {
   if (type === 'water') {
+    // Convert raw value (1-10) to percentage for color logic
+    const percentage = normalizeWaterLevel(value);
     // Water: green if >= 50%, yellow if 30-49%, red if < 30%
-    if (value >= 50) return 'bg-blue-100 text-blue-700';
-    if (value >= 30) return 'bg-yellow-100 text-yellow-700';
+    if (percentage >= 50) return 'bg-blue-100 text-blue-700';
+    if (percentage >= 30) return 'bg-yellow-100 text-yellow-700';
     return 'bg-red-100 text-red-700';
   }
 
-  const plantThresholds = PLANT_THRESHOLDS[plantName];
+  // Try to find plant thresholds with case-insensitive match
+  let plantThresholds = PLANT_THRESHOLDS[plantName];
+  
+  // If not found, try to find by case-insensitive match
+  if (!plantThresholds && plantName) {
+    const normalizedName = plantName.toLowerCase();
+    const matchedKey = Object.keys(PLANT_THRESHOLDS).find(
+      key => key.toLowerCase() === normalizedName
+    );
+    if (matchedKey) {
+      plantThresholds = PLANT_THRESHOLDS[matchedKey];
+    }
+  }
+  
   if (!plantThresholds) return 'bg-gray-100 text-gray-700';
 
   switch (type) {
@@ -359,7 +406,7 @@ function Logs() {
                         <span className={`inline-flex items-center px-2 py-1 rounded-full font-bold text-xs md:text-sm ${
                           getBadgeColor('water', data.waterLevel, data.plantName)
                         }`}>
-                          {Number.isFinite(data.waterLevel) ? `${data.waterLevel}%` : '—'}
+                          {Number.isFinite(data.waterLevel) ? getWaterLevelText(data.waterLevel) : '—'}
                         </span>
                       </td>
                       <td className="px-2 md:px-6 py-2.5 md:py-4 text-center">

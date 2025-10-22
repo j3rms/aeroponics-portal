@@ -69,13 +69,6 @@ export async function GET(request) {
     let sensorData = null;
     
     if (data.status && data.data && data.data.length > 0) {
-      // Convert water level enum to percentage
-      const waterLevelMap = {
-        'HIGH': 100,
-        'MEDIUM': 50,
-        'LOW': 25
-      };
-      
       if (towerId) {
         // Specific tower - get latest entry for that tower
         const filteredData = data.data.filter(log => log.tower?.id === parseInt(towerId));
@@ -86,7 +79,7 @@ export async function GET(request) {
           sensorData = {
             phValue: parseFloat(latestLog.ph_level),
             ppmValue: parseFloat(latestLog.ppm),
-            waterLevel: waterLevelMap[latestLog.water_level] || 0,
+            waterLevel: parseFloat(latestLog.water_level || 0),
             waterTemperatureC: parseFloat(latestLog.water_temperature || 0),
             timestamp: latestLog.time,
             towerId: latestLog.tower?.id,
@@ -110,7 +103,7 @@ export async function GET(request) {
         if (latestEntries.length > 0) {
           const avgPh = latestEntries.reduce((sum, log) => sum + parseFloat(log.ph_level), 0) / latestEntries.length;
           const avgPpm = latestEntries.reduce((sum, log) => sum + parseFloat(log.ppm), 0) / latestEntries.length;
-          const avgWaterLevel = latestEntries.reduce((sum, log) => sum + (waterLevelMap[log.water_level] || 0), 0) / latestEntries.length;
+          const avgWaterLevel = latestEntries.reduce((sum, log) => sum + parseFloat(log.water_level || 0), 0) / latestEntries.length;
           const avgTemp = latestEntries.reduce((sum, log) => sum + parseFloat(log.water_temperature || 0), 0) / latestEntries.length;
           
           sensorData = {

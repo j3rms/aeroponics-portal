@@ -452,7 +452,7 @@ const CreateTower = () => {
       user: { id: currentUserId }, // Use current logged-in user ID
       plant: { id: plant.id },
       time: wateringTimes[0].time, // First watering time (HH:mm format, no seconds)
-      water_level: 'MEDIUM', // Use enum value: HIGH, MEDIUM, or LOW
+      water_level: 5, // Default to medium (1-3=High, 4-7=Medium, 8-10=Low)
       frequency: parseInt(wateringFrequency),
       start_date: formatDateLocal(startDate),
       end_date: formatDateLocal(endDate),

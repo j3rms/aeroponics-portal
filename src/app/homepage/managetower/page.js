@@ -1,13 +1,31 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Pencil, Trash2, Plus, X, Building2, Leaf, Loader2, Clock, Calendar, Droplets, RefreshCw, Edit3 } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Building2, Leaf, Loader2, Clock, Calendar, Droplets, RefreshCw, Edit3, Cpu, Info } from "lucide-react";
 import { motion } from "framer-motion";
 import Sidebar from "@/components/sidebar";
 import Footer from "@/components/footer";
 import Link from "next/link";
 import { toast } from 'react-hot-toast';
 import withAuth from "@/components/withAuth";
+import DeviceAssignmentModal from "@/components/DeviceAssignmentModal";
+
+// Helper function to convert numeric water level to text
+const getWaterLevelText = (value) => {
+  // If already text, return as is
+  if (typeof value === 'string' && ['HIGH', 'MEDIUM', 'LOW'].includes(value.toUpperCase())) {
+    return value.toUpperCase();
+  }
+  
+  // Convert numeric to text based on range
+  const numValue = parseInt(value);
+  if (numValue >= 1 && numValue <= 3) return 'HIGH';
+  if (numValue >= 4 && numValue <= 7) return 'MEDIUM';
+  if (numValue >= 8 && numValue <= 10) return 'LOW';
+  
+  // Default to MEDIUM if invalid
+  return 'MEDIUM';
+};
 
 function ManageTower() {
   const [towers, setTowers] = useState([]);
@@ -15,6 +33,14 @@ function ManageTower() {
   const [editingTower, setEditingTower] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loadingTowerData, setLoadingTowerData] = useState(false);
+  
+  // Device assignment states
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [deviceAssignTower, setDeviceAssignTower] = useState(null);
+  
+  // Delete confirmation modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [towerToDelete, setTowerToDelete] = useState(null);
   
   // Fetch towers from backend API
   useEffect(() => {
@@ -28,7 +54,17 @@ function ManageTower() {
       const towersResponse = await towersFromApi.json();
 
       if (towersResponse.success && towersResponse.data && towersResponse.data.data) {
-        setTowers(towersResponse.data.data);
+        // Filter out archived towers (status = false means archived/inactive)
+        // When backend supports enum, filter out status = 'Archived'
+        const activeTowers = towersResponse.data.data.filter(tower => {
+          // If status is boolean, show only active (true)
+          if (typeof tower.status === 'boolean') {
+            return tower.status === true;
+          }
+          // If status is enum, exclude 'Archived' towers
+          return tower.status !== 'Archived' && tower.status !== 'ARCHIVED';
+        });
+        setTowers(activeTowers);
       }
     } catch (error) {
       console.error("Error fetching towers:", error);
@@ -37,41 +73,77 @@ function ManageTower() {
     }
   };
 
-  const handleDeleteTower = async (id) => {
+  const handleDeleteTower = (tower) => {
+    // Show confirmation modal
+    setTowerToDelete(tower);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteTower = async () => {
+    if (!towerToDelete) return;
+    
+    const tower = towerToDelete;
+
     try {
-      const response = await fetch(`/apis/deleteTower/${id}`, {
-        method: "DELETE",
+      setShowDeleteModal(false);
+      // First, fetch the full tower data to get all required fields
+      const getTowerResponse = await fetch(`/apis/getTower/${tower.id}`);
+      const getTowerResult = await getTowerResponse.json();
+      
+      if (!getTowerResponse.ok || !getTowerResult.success) {
+        throw new Error('Failed to fetch tower data');
+      }
+      
+      const fullTowerData = getTowerResult.data?.data || getTowerResult.data;
+      
+      // Prepare payload with all required fields, just changing status
+      const payload = {
+        id: fullTowerData.id,
+        user: fullTowerData.user,
+        plant: fullTowerData.plant,
+        name: fullTowerData.name,
+        frequency: fullTowerData.frequency,
+        start_date: fullTowerData.start_date || fullTowerData.startDate,
+        end_date: fullTowerData.end_date || fullTowerData.endDate,
+        status: false, // Set to inactive/archived
+        water_level: fullTowerData.water_level || fullTowerData.waterLevel,
+        watering_duration: fullTowerData.watering_duration || fullTowerData.wateringDuration || 15,
+        schedules: (fullTowerData.schedules || []).map(s => ({
+          id: s.id,
+          start_time: s.start_time || s.time,
+          duration: s.duration
+        }))
+      };
+      
+      const response = await fetch(`/apis/updateTower/${tower.id}`, {
+        method: "PUT",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
+      
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.message || "Failed to delete tower");
+        console.error('Archive error:', err);
+        throw new Error(err.message || "Failed to archive tower");
       }
-      setTowers((prev) => prev.filter((tower) => tower.id !== id));
       
-      // Show success notification
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
-      notification.textContent = 'Tower deleted successfully!';
-      document.body.appendChild(notification);
+      // Remove from UI (tower is now archived)
+      setTowers((prev) => prev.filter((t) => t.id !== tower.id));
       
-      setTimeout(() => {
-        notification.classList.add('animate-fade-out');
-        setTimeout(() => notification.remove(), 300);
-      }, 3000);
+      toast.success(`"${tower.name}" has been archived successfully!`);
+      setTowerToDelete(null);
     } catch (error) {
-      console.error("Error deleting tower:", error);
-      
-      // Show error notification
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
-      notification.textContent = 'Failed to delete tower. Please try again.';
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        notification.classList.add('animate-fade-out');
-        setTimeout(() => notification.remove(), 300);
-      }, 3000);
+      console.error("Error archiving tower:", error);
+      toast.error('Failed to archive tower: ' + error.message);
+      setTowerToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setTowerToDelete(null);
   };
 
   const handleEditTower = async (tower) => {
@@ -118,7 +190,7 @@ function ManageTower() {
         startDate: towerData.start_date || towerData.startDate,
         endDate: towerData.end_date || towerData.endDate,
         frequency: frequency,
-        waterLevel: towerData.water_level || towerData.waterLevel,
+        waterLevel: towerData.water_level || towerData.waterLevel || 5,
         wateringDuration: towerData.watering_duration || towerData.wateringDuration || schedules[0]?.duration || 15,
         user: towerData.user,
         plant: towerData.plant,
@@ -136,6 +208,20 @@ function ManageTower() {
 
   const handleCloseEdit = () => {
     setEditingTower(null);
+  };
+
+  const handleConnectDevice = (tower) => {
+    setDeviceAssignTower(tower);
+    setShowDeviceModal(true);
+  };
+
+  const handleDeviceModalClose = (assigned) => {
+    setShowDeviceModal(false);
+    setDeviceAssignTower(null);
+    if (assigned) {
+      // Refresh towers list after device assignment
+      fetchTowers();
+    }
   };
 
   const handleEditChange = (field, value) => {
@@ -353,20 +439,29 @@ function ManageTower() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3 w-full">
+                    <div className="flex flex-col gap-3 w-full">
+                      <div className="flex gap-3 w-full">
+                        <button
+                          onClick={() => handleEditTower(tower)}
+                          className="flex items-center justify-center gap-2 flex-1 px-4 py-2.5 text-sm font-semibold text-green-700 bg-green-50 border-2 border-green-200 rounded-xl hover:bg-green-100 hover:border-green-300 transition-all"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTower(tower)}
+                          className="flex items-center justify-center gap-2 flex-1 px-4 py-2.5 text-sm font-semibold text-red-700 bg-red-50 border-2 border-red-200 rounded-xl hover:bg-red-100 hover:border-red-300 transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
                       <button
-                        onClick={() => handleEditTower(tower)}
-                        className="flex items-center justify-center gap-2 flex-1 px-4 py-2.5 text-sm font-semibold text-green-700 bg-green-50 border-2 border-green-200 rounded-xl hover:bg-green-100 hover:border-green-300 transition-all"
+                        onClick={() => handleConnectDevice(tower)}
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 border-2 border-blue-200 rounded-xl hover:bg-blue-100 hover:border-blue-300 transition-all"
                       >
-                        <Pencil className="w-4 h-4" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTower(tower.id)}
-                        className="flex items-center justify-center gap-2 flex-1 px-4 py-2.5 text-sm font-semibold text-red-700 bg-red-50 border-2 border-red-200 rounded-xl hover:bg-red-100 hover:border-red-300 transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
+                        <Cpu className="w-4 h-4" />
+                        Connect Device
                       </button>
                     </div>
                   </div>
@@ -507,17 +602,20 @@ function ManageTower() {
                   <div className="mb-6">
                     <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
                       <Droplets className="w-4 h-4 text-blue-600" />
-                      Water Level
+                      Water Level (1-10)
                     </label>
-                    <select
-                      value={editingTower.waterLevel || 'MEDIUM'}
-                      onChange={(e) => handleEditChange("waterLevel", e.target.value)}
-                      className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium bg-white"
-                    >
-                      <option value="HIGH">High</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="LOW">Low</option>
-                    </select>
+                    <input
+                      type="number"
+                      value={editingTower.waterLevel || 5}
+                      onChange={(e) => handleEditChange("waterLevel", parseInt(e.target.value))}
+                      min="1"
+                      max="10"
+                      className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                      placeholder="5"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      1-3 = High, 4-7 = Medium, 8-10 = Low
+                    </p>
                   </div>
 
                   {/* Date Range */}
@@ -662,6 +760,69 @@ function ManageTower() {
           </motion.div>
         </motion.div>
         
+      )}
+
+      {/* Device Assignment Modal */}
+      {deviceAssignTower && (
+        <DeviceAssignmentModal
+          isOpen={showDeviceModal}
+          onClose={handleDeviceModalClose}
+          towerId={deviceAssignTower.id}
+          towerName={deviceAssignTower.name}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && towerToDelete && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm p-4"
+          onClick={cancelDelete}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            transition={{ duration: 0.2 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden"
+          >
+            {/* Header */}
+            <div className="p-8 pb-6">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mb-4">
+                  <Trash2 className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Delete Tower?</h2>
+                <p className="text-gray-600 text-base">
+                  Are you sure you want to delete <span className="font-semibold text-gray-800">"{towerToDelete.name}"</span>?
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 px-8 pb-8">
+              <motion.button
+                onClick={cancelDelete}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 px-6 py-3.5 rounded-xl border-2 border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 transition-all font-semibold text-gray-700"
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={confirmDeleteTower}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 px-6 py-3.5 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                Delete
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

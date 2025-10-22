@@ -82,12 +82,6 @@ export async function GET(request) {
       );
     }
 
-    const waterLevelMap = {
-      HIGH: 100,
-      MEDIUM: 50,
-      LOW: 25,
-    };
-
     let items = [];
     if (payload.status && Array.isArray(payload.data)) {
       let logs = payload.data;
@@ -104,15 +98,15 @@ export async function GET(request) {
         logs = logs.filter((log) => log?.tower?.id === idNum);
       }
 
-      // sort by time if available (now LocalDateTime from backend)
+      // sort by time if available (now LocalDateTime from backend) - most recent first
       logs.sort((a, b) => {
         const ta = a?.time ? new Date(a.time).getTime() : 0;
         const tb = b?.time ? new Date(b.time).getTime() : 0;
-        return ta - tb;
+        return tb - ta; // Changed to descending order (most recent first)
       });
 
-      // take last N
-      const recent = logs.slice(-limit);
+      // take first N (most recent)
+      const recent = logs.slice(0, limit);
 
       items = recent.map((log, idx) => {
         // Parse LocalDateTime from backend (format: "2025-10-17T10:45:00")
@@ -137,7 +131,7 @@ export async function GET(request) {
           plantName: log?.tower?.plant?.name || "Unknown",
           phLevel: parseFloat(log?.ph_level ?? 0),
           ppmLevel: parseFloat(log?.ppm ?? 0),
-          waterLevel: waterLevelMap[log?.water_level] ?? 0,
+          waterLevel: parseInt(log?.water_level ?? 5), // Now stores raw integer (1-10)
           waterTemperature: parseFloat(log?.water_temperature ?? 0),
           time: timeOnly, // Time-only string for display ("HH:mm:ss")
           timestamp: timestamp, // Full ISO timestamp
