@@ -251,8 +251,8 @@ function Dashboard() {
       const result = await response.json();
 
       if (result.success && result.data && result.data.data) {
-        // Filter only active towers (status = true)
-        const activeTowers = result.data.data.filter(tower => tower.status === true);
+        // Filter only active towers (status = 'ACTIVE')
+        const activeTowers = result.data.data.filter(tower => tower.status === 'ACTIVE');
         setTowers(activeTowers);
         setTowersError(null);
       } else {

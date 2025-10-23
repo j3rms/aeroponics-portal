@@ -524,7 +524,9 @@ const CreateTower = () => {
     setIsSubmitting(true);
     toast.loading('Creating tower...');
 
-    // Prepare payload matching backend TowerRO structure
+    // Create tower: default status is INACTIVE until device assignment
+    // Backend enforces this and will activate tower only when device is connected
+    // Status flow: INACTIVE (created) -> ACTIVE (device assigned) -> ARCHIVED (deleted)
     const payload = {
       name: towerName,
       user: { id: currentUserId }, // Use current logged-in user ID
@@ -534,7 +536,7 @@ const CreateTower = () => {
       frequency: parseInt(wateringFrequency),
       start_date: formatDateLocal(startDate),
       end_date: formatDateLocal(endDate),
-      status: true, // New towers are active by default
+      status: 'INACTIVE', // New towers start INACTIVE, become ACTIVE only when device assigned
       watering_duration: wateringTimes[0].duration, // Duration in minutes (same for all sessions)
       schedules: wateringTimes.map((schedule) => ({
         id: 0, // New schedule, no ID yet

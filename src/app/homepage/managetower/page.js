@@ -53,8 +53,9 @@ function ManageTower() {
       const towersResponse = await towersFromApi.json();
 
       if (towersResponse.success && towersResponse.data && towersResponse.data.data) {
-        // Show all towers (active and inactive) in Manage Tower
-        setTowers(towersResponse.data.data);
+        // Show active and inactive towers, but exclude archived ones
+        const nonArchivedTowers = towersResponse.data.data.filter(tower => tower.status !== 'ARCHIVED');
+        setTowers(nonArchivedTowers);
       }
     } catch (error) {
       console.error("Error fetching towers:", error);
@@ -76,7 +77,8 @@ function ManageTower() {
 
     try {
       setShowDeleteModal(false);
-      // First, fetch the full tower data to get all required fields
+      // Archive tower by fetching full data and updating status to ARCHIVED
+      // This implements soft delete - tower remains in database but is hidden from UI
       const getTowerResponse = await fetch(`/apis/getTower/${tower.id}`);
       const getTowerResult = await getTowerResponse.json();
       
@@ -95,7 +97,7 @@ function ManageTower() {
         frequency: fullTowerData.frequency,
         start_date: fullTowerData.start_date || fullTowerData.startDate,
         end_date: fullTowerData.end_date || fullTowerData.endDate,
-        status: false, // Set to inactive/archived
+        status: 'ARCHIVED', // Soft delete by archiving
         water_level: fullTowerData.water_level || fullTowerData.waterLevel,
         watering_duration: fullTowerData.watering_duration || fullTowerData.wateringDuration || 15,
         schedules: (fullTowerData.schedules || []).map(s => ({
@@ -119,8 +121,8 @@ function ManageTower() {
         throw new Error(err.message || "Failed to archive tower");
       }
       
-      // Keep in UI but mark as inactive
-      setTowers((prev) => prev.map((t) => t.id === tower.id ? { ...t, status: false } : t));
+      // Remove archived tower from UI
+      setTowers((prev) => prev.filter((t) => t.id !== tower.id));
       
       toast.success(`"${tower.name}" has been archived successfully!`);
       setTowerToDelete(null);
@@ -176,7 +178,7 @@ function ManageTower() {
       setEditingTower({
         id: towerData.id,
         name: towerData.name,
-        status: towerData.status,
+        status: towerData.status === 'ACTIVE', // Convert enum string to boolean for UI
         startDate: towerData.start_date || towerData.startDate,
         endDate: towerData.end_date || towerData.endDate,
         frequency: frequency,
@@ -311,7 +313,10 @@ function ManageTower() {
       setSaving(true);
       toast.loading('Updating tower...');
 
-      // Prepare payload matching backend TowerRO structure
+      // Edit tower: fetch current data and update with new values
+      // Status conversion: boolean (UI state) -> enum string (backend)
+      // - true -> 'ACTIVE' (requires device assignment, validated by backend)
+      // - false -> 'INACTIVE' (allowed immediately, skips schedule validation)
       const isActive = editingTower.status;
       const formatTimeWithSeconds = (time) => {
         if (!time) return null;
@@ -343,7 +348,7 @@ function ManageTower() {
         frequency: editingTower.frequency,
         start_date: editingTower.startDate,
         end_date: editingTower.endDate,
-        status: editingTower.status, // Send as boolean
+        status: editingTower.status ? 'ACTIVE' : 'INACTIVE', // Convert boolean to enum string
         watering_duration: editingTower.wateringDuration || 15,
         schedules: schedulesPayload,
       };
@@ -481,15 +486,15 @@ function ManageTower() {
 
                     {/* Status Badge */}
                     <div className={`mb-5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
-                      tower.status ? 'bg-green-100' : 'bg-red-100'
+                      tower.status === 'ACTIVE' ? 'bg-green-100' : 'bg-red-100'
                     }`}>
                       <div className={`w-2 h-2 rounded-full ${
-                        tower.status ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                        tower.status === 'ACTIVE' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
                       }`}></div>
                       <span className={`text-xs font-semibold ${
-                        tower.status ? 'text-green-700' : 'text-red-700'
+                        tower.status === 'ACTIVE' ? 'text-green-700' : 'text-red-700'
                       }`}>
-                        {tower.status ? 'Active' : 'Inactive'}
+                        {tower.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                       </span>
                     </div>
 
