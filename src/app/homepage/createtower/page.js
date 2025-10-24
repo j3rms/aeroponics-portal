@@ -45,15 +45,64 @@ const CreateTower = () => {
   const [customPpmMin, setCustomPpmMin] = useState('');
   const [customPpmMax, setCustomPpmMax] = useState('');
 
+  // Defer tower creation until device modal answered
+  const [pendingTowerPayload, setPendingTowerPayload] = useState(null);
+
+  const createTowerAndMaybeAssign = async (payload, selection) => {
+    // selection: { assigned: boolean, deviceId?: number } | { closed: true }
+    try {
+      toast.loading('Creating tower...');
+      const res = await fetch('/apis/addTower', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || `Error: ${res.status}`);
+      }
+      const data = await res.json();
+      const towerId = data.data?.data?.id || data.data?.id || data.id || null;
+      if (!towerId) throw new Error('Tower ID missing from response');
+
+      // If a device was selected, assign it now
+      if (selection?.assigned && selection?.deviceId) {
+        const assignRes = await fetch(`/apis/assignDeviceToTower`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ towerId, deviceId: selection.deviceId }),
+        });
+        const assignData = await assignRes.json();
+        if (!assignRes.ok || !assignData.success) {
+          toast.error(assignData.message || 'Device assignment failed');
+        } else {
+          toast.success('Device assigned successfully!');
+        }
+      }
+
+      toast.dismiss();
+      toast.success('Tower successfully created!');
+      router.push('/homepage/managetower');
+    } catch (err) {
+      console.error('Create flow failed:', err);
+      toast.dismiss();
+      toast.error(err.message || 'Failed to create tower');
+    } finally {
+      setIsSubmitting(false);
+      setPendingTowerPayload(null);
+    }
+  };
+
   // Step wizard state
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   const steps = [
-    { number: 1, title: 'Tower Name', description: 'Name your aeroponics tower' },
-    { number: 2, title: 'Select Plant', description: 'Choose the plant variety' },
-    { number: 3, title: 'Watering Schedule', description: 'Set watering frequency and times' },
-    { number: 4, title: 'Select Dates', description: 'Choose start and end dates' }
+    { number: 1, title: 'Instructions', description: 'Prerequisites and setup guide' },
+    { number: 2, title: 'Tower Name', description: 'Name your aeroponics tower' },
+    { number: 3, title: 'Select Plant', description: 'Choose the plant variety' },
+    { number: 4, title: 'Watering Schedule', description: 'Set watering frequency and times' },
+    { number: 5, title: 'Select Dates', description: 'Choose start and end dates' }
   ];
 
   // Calendar setup
@@ -160,18 +209,21 @@ const CreateTower = () => {
   const validateStep = (step) => {
     switch(step) {
       case 1:
+        // Instructions step - no validation needed
+        return true;
+      case 2:
         if (!towerName.trim()) {
           toast.error('Please enter a tower name');
           return false;
         }
         return true;
-      case 2:
+      case 3:
         if (!selectedPlant) {
           toast.error('Please select a plant');
           return false;
         }
         return true;
-      case 3:
+      case 4:
         if (!wateringFrequency) {
           toast.error('Please select watering frequency');
           return false;
@@ -181,7 +233,7 @@ const CreateTower = () => {
           return false;
         }
         return true;
-      case 4:
+      case 5:
         if (!startDate || !endDate) {
           toast.error('Please select both start and end dates');
           return false;
@@ -522,7 +574,6 @@ const CreateTower = () => {
     }
 
     setIsSubmitting(true);
-    toast.loading('Creating tower...');
 
     // Create tower: default status is INACTIVE until device assignment
     // Backend enforces this and will activate tower only when device is connected
@@ -545,58 +596,11 @@ const CreateTower = () => {
       }))
     };
 
-    console.log('Sending payload:', JSON.stringify(payload, null, 2));
-
-    try {
-      const res = await fetch('/apis/addTower', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error('Backend error response:', errorData);
-        throw new Error(errorData.message || `Error: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      console.log('Tower created successfully - Full response:', JSON.stringify(data, null, 2));
-      
-      // Extract tower ID from response
-      // API wrapper returns: { success: true, data: { status: true, statusCode: 200, message: "...", data: TowerDTO } }
-      // So tower ID is at: data.data.data.id
-      const towerId = data.data?.data?.id || data.data?.id || data.id || null;
-      console.log('Extracted tower ID:', towerId);
-      
-      if (!towerId) {
-        console.error('Tower ID not found in response. Response structure:', data);
-        toast.error('Tower created but could not retrieve ID for device assignment');
-        setIsSubmitting(false);
-        // Still redirect to manage towers after a delay
-        setTimeout(() => {
-          router.push('/homepage/managetower');
-        }, 2000);
-        return;
-      }
-      
-      toast.dismiss();
-      toast.success('Tower successfully created!');
-      
-      // Store tower info and show device assignment modal
-      setCreatedTowerId(towerId);
-      setCreatedTowerName(towerName);
-      setIsSubmitting(false);
-      setShowDeviceModal(true);
-    } catch (err) {
-      console.error('Failed to create tower:', err);
-      toast.dismiss();
-      const errorMsg = err.message || 'Unknown error occurred';
-      toast.error(`Error creating tower: ${errorMsg}`);
-      setIsSubmitting(false);
-    }
+    // Defer creation until device modal is answered
+    setPendingTowerPayload(payload);
+    setCreatedTowerId(null);
+    setCreatedTowerName(towerName);
+    setShowDeviceModal(true);
   };
 
   const prevMonth = () => {
@@ -639,7 +643,7 @@ const CreateTower = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-12 relative overflow-hidden"
+            className="mb-12 relative"
           >
             {/* Decorative background */}
             <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
@@ -666,7 +670,7 @@ const CreateTower = () => {
                 onClick={() => router.push('/homepage/managetower')}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-2xl font-semibold shadow-lg hover:shadow-xl hover:border-green-200 transition-all"
+                className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-2xl font-semibold shadow-lg hover:shadow-xl hover:border-green-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
               >
                 <ArrowLeft className="w-5 h-5" />
                 Back to Towers
@@ -678,7 +682,7 @@ const CreateTower = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
             className="bg-white/90 backdrop-blur-sm rounded-2xl border-2 border-green-100 shadow-lg p-6 mb-6"
           >
             <div className="flex items-center justify-between mb-4">
@@ -745,24 +749,82 @@ const CreateTower = () => {
                     Step {currentStep} of {totalSteps}: {steps[currentStep - 1].title}
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    {currentStep === 1 && "Give your tower a unique, descriptive name to easily identify it."}
-                    {currentStep === 2 && "Choose the plant variety you'll be growing. This determines the optimal nutrient levels."}
-                    {currentStep === 3 && "Configure how often and when your system should water the plants."}
-                    {currentStep === 4 && "Set the cultivation period by choosing start and end dates for this tower."}
+                    {currentStep === 1 && "Review the prerequisites and requirements before creating your tower."}
+                    {currentStep === 2 && "Give your tower a unique, descriptive name to easily identify it."}
+                    {currentStep === 3 && "Choose the plant variety you'll be growing. This determines the optimal nutrient levels."}
+                    {currentStep === 4 && "Configure how often and when your system should water the plants."}
+                    {currentStep === 5 && "Set the cultivation period by choosing start and end dates for this tower."}
                   </p>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter') { if (currentStep < totalSteps) { e.preventDefault(); handleNextStep(); } } }} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* STEP 1: Tower Name */}
+            {/* STEP 1: Instructions */}
             {currentStep === 1 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
+                transition={{ duration: 0.5, delay: 0.25 }}
+                className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-3xl shadow-lg p-8 lg:col-span-2"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <Info className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-4">
+                      Before You Begin
+                    </h3>
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        Please ensure the following requirements are met before creating your tower:
+                      </p>
+                      <ul className="space-y-3 text-sm text-gray-700">
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-white text-xs font-bold">✓</span>
+                          </div>
+                          <span><strong className="text-gray-800">Hardware Setup:</strong> Your aeroponics tower hardware should be fully assembled and ready for operation.</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-white text-xs font-bold">✓</span>
+                          </div>
+                          <span><strong className="text-gray-800">Device Connection:</strong> Ensure your IoT device/controller is connected and online.</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-white text-xs font-bold">✓</span>
+                          </div>
+                          <span><strong className="text-gray-800">Plant Selection:</strong> Know which plant variety you'll be growing to configure optimal nutrient levels.</span>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <span className="text-white text-xs font-bold">✓</span>
+                          </div>
+                          <span><strong className="text-gray-800">Watering Schedule:</strong> Have a watering schedule in mind based on your plant's needs.</span>
+                        </li>
+                      </ul>
+                      <div className="bg-blue-100 border border-blue-300 rounded-xl p-4 mt-4">
+                        <p className="text-sm text-blue-800 font-medium">
+                          💡 <strong>Tip:</strong> After creating your tower, you'll be prompted to assign a device. The tower will remain inactive until a device is connected.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 2: Tower Name */}
+            {currentStep === 2 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.25 }}
                 className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
               >
                 <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
@@ -783,12 +845,12 @@ const CreateTower = () => {
               </motion.div>
             )}
 
-            {/* STEP 2: Plant Selection */}
-            {currentStep === 2 && (
+            {/* STEP 3: Plant Selection */}
+            {currentStep === 3 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
+                transition={{ duration: 0.5, delay: 0.25 }}
                 className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
               >
                 <h2 className="font-semibold text-xl text-gray-800 mb-3 flex items-center gap-2">
@@ -830,8 +892,8 @@ const CreateTower = () => {
               </motion.div>
             )}
 
-            {/* STEP 3: Watering Schedule */}
-            {currentStep === 3 && (
+            {/* STEP 4: Watering Schedule */}
+            {currentStep === 4 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -940,8 +1002,8 @@ const CreateTower = () => {
               </motion.div>
             )}
 
-            {/* STEP 4: Calendar */}
-            {currentStep === 4 && (
+            {/* STEP 5: Calendar */}
+            {currentStep === 5 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -962,7 +1024,8 @@ const CreateTower = () => {
       type="button" 
       onClick={prevMonth} 
       disabled={year === today.getFullYear() && month === today.getMonth()}
-      className={`p-2 rounded-xl transition ${
+      aria-label="Previous month"
+      className={`p-2 rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
         year === today.getFullYear() && month === today.getMonth()
           ? 'text-gray-300 cursor-not-allowed'
           : 'hover:bg-white hover:shadow-md text-gray-700'
@@ -971,7 +1034,7 @@ const CreateTower = () => {
       <ChevronLeft className="w-5 h-5" />
     </button>
     <h3 className="text-xl font-bold text-gray-800">{monthNames[month]} {year}</h3>
-    <button type="button" onClick={nextMonth} className="p-2 hover:bg-white hover:shadow-md rounded-xl transition text-gray-700">
+    <button type="button" onClick={nextMonth} aria-label="Next month" className="p-2 hover:bg-white hover:shadow-md rounded-xl transition text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2">
       <ChevronRight className="w-5 h-5" />
     </button>
   </div>
@@ -1041,9 +1104,9 @@ const CreateTower = () => {
               type="button"
               onClick={handlePrevStep}
               disabled={currentStep === 1}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-semibold shadow-lg transition-all ${
+              whileHover={{ scale: currentStep === 1 ? 1 : 1.02 }}
+              whileTap={{ scale: currentStep === 1 ? 1 : 0.98 }}
+              className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-semibold shadow-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
                 currentStep === 1 
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                   : 'bg-white border-2 border-gray-300 text-gray-700 hover:shadow-xl hover:border-gray-400'
@@ -1059,7 +1122,7 @@ const CreateTower = () => {
                 onClick={handleNextStep}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
               >
                 Next Step
                 <ChevronRight className="w-5 h-5" />
@@ -1071,7 +1134,7 @@ const CreateTower = () => {
                 disabled={isSubmitting}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-10 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-10 py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting && <LoadingSpinner size="sm" color="white" />}
                 {isSubmitting ? 'CREATING TOWER...' : 'CREATE TOWER'}
@@ -1252,12 +1315,18 @@ const CreateTower = () => {
       {/* Device Assignment Modal */}
       <DeviceAssignmentModal
         isOpen={showDeviceModal}
-        onClose={(assigned) => {
+        deferAssign={true}
+        onClose={(result) => {
           setShowDeviceModal(false);
-          // Redirect to manage towers after modal closes
-          setTimeout(() => {
-            router.push('/homepage/managetower');
-          }, 500);
+          // If user simply closed, do nothing (no fetch, no creation)
+          if (result?.closed) {
+            setIsSubmitting(false);
+            return;
+          }
+          // Create tower; optionally assign device
+          if (pendingTowerPayload) {
+            createTowerAndMaybeAssign(pendingTowerPayload, result);
+          }
         }}
         towerId={createdTowerId}
         towerName={createdTowerName}

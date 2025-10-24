@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Cpu, Wifi, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerName }) {
+export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerName, deferAssign = false }) {
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
@@ -38,10 +38,18 @@ export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerN
   };
 
   const handleAssignDevice = async (deviceId) => {
+    setAssigning(true);
+    setSelectedDeviceId(deviceId);
+    if (deferAssign) {
+      // Do not call backend; return selection to parent
+      toast.success('Device selected. Proceeding...');
+      setTimeout(() => {
+        onClose({ assigned: true, deviceId });
+      }, 600);
+      return;
+    }
+
     try {
-      setAssigning(true);
-      setSelectedDeviceId(deviceId);
-      
       const response = await fetch(`/apis/assignDeviceToTower`, {
         method: 'POST',
         headers: {
@@ -58,7 +66,7 @@ export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerN
       if (response.ok && result.success) {
         toast.success('Device assigned successfully!');
         setTimeout(() => {
-          onClose(true); // Pass true to indicate successful assignment
+          onClose(true); // boolean for backward compatibility
         }, 1000);
       } else {
         toast.error(result.message || 'Failed to assign device');
@@ -74,7 +82,11 @@ export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerN
   };
 
   const handleSkip = () => {
-    onClose(false); // Pass false to indicate skipped
+    if (deferAssign) {
+      onClose({ assigned: false });
+    } else {
+      onClose(false); // boolean for existing flows
+    }
   };
 
   if (!isOpen) return null;
@@ -92,9 +104,10 @@ export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerN
           {/* Header */}
           <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 relative">
             <button
-              onClick={handleSkip}
+              onClick={deferAssign ? () => onClose({ closed: true }) : handleSkip}
               disabled={assigning}
-              className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors disabled:opacity-50"
+              aria-label="Close modal"
+              className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-green-600"
             >
               <X className="w-6 h-6" />
             </button>
@@ -129,7 +142,7 @@ export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerN
                 </p>
                 <button
                   onClick={handleSkip}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors"
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
                 >
                   Skip for Now
                 </button>
@@ -190,7 +203,7 @@ export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerN
               <button
                 onClick={handleSkip}
                 disabled={assigning}
-                className="w-full py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors disabled:opacity-50"
+                className="w-full py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
               >
                 Skip for Now (Assign Later)
               </button>

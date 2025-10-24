@@ -23,10 +23,8 @@ const LandingPage = () => {
               <a href="#features" className="text-gray-700 hover:text-green-600 transition font-medium">Features</a>
               <a href="#benefits" className="text-gray-700 hover:text-green-600 transition font-medium">Benefits</a>
               <a href="#stats" className="text-gray-700 hover:text-green-600 transition font-medium">Impact</a>
-              <Link href="/login">
-                <button className="px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition font-medium">
-                  Login
-                </button>
+              <Link href="/login" className="px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2">
+                Login
               </Link>
             </div>
           </div>
@@ -102,16 +100,12 @@ const LandingPage = () => {
                 transition={{ duration: 0.8, delay: 0.7 }}
                 className="flex flex-col sm:flex-row gap-4"
               >
-                <Link href="/signup">
-                  <button className="group px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-semibold text-lg flex items-center justify-center space-x-2">
-                    <span>Start Growing Today</span>
-                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </button>
+                <Link href="/signup" className="group inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-semibold text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2">
+                  <span>Start Growing Today</span>
+                  <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
-                <Link href="/login">
-                  <button className="px-8 py-4 bg-white text-green-700 border-2 border-green-600 rounded-xl hover:bg-green-50 transition-all font-semibold text-lg">
-                    Sign In
-                  </button>
+                <Link href="/login" className="inline-flex items-center justify-center px-8 py-4 bg-white text-green-700 border-2 border-green-600 rounded-xl hover:bg-green-50 transition-all font-semibold text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2">
+                  Sign In
                 </Link>
               </motion.div>
             </motion.div>

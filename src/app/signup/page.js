@@ -82,9 +82,16 @@ export default function Signup() {
   // Check if OTP is complete
   const isOtpComplete = otpCode.every(digit => digit !== "");
 
+  // Format seconds to mm:ss (e.g., 5:00)
+  const formatTime = (totalSeconds) => {
+    const m = Math.floor((totalSeconds || 0) / 60);
+    const s = Math.max(0, (totalSeconds || 0) % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   // Start resend timer
   const startResendTimer = () => {
-    setResendTimer(60);
+    setResendTimer(300);
     const interval = setInterval(() => {
       setResendTimer((prev) => {
         if (prev <= 1) {
@@ -245,10 +252,22 @@ export default function Signup() {
         return;
       }
 
-      // Success - redirect to login
-      toast.success("Account created successfully! Redirecting to login...");
+      // Success - store token if provided and redirect to dashboard
+      if (data.token || data.data?.token) {
+        // Store authentication token in localStorage
+        const token = data.token || data.data?.token;
+        localStorage.setItem('authToken', token);
+        
+        // If user data is provided, store it as well
+        if (data.user || data.data?.user) {
+          const userData = data.user || data.data?.user;
+          localStorage.setItem('userData', JSON.stringify(userData));
+        }
+      }
+      
+      toast.success("Account created successfully! Redirecting to dashboard...");
       setTimeout(() => {
-        router.push("/login");
+        router.push("/homepage/dashboard");
       }, 2000);
     } catch (err) {
       console.error("Verify OTP error:", err);
@@ -533,7 +552,7 @@ export default function Signup() {
               whileTap={{ scale: loading ? 1 : 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full py-4 px-4 text-lg font-bold rounded-2xl text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+              className="w-full py-4 px-4 text-lg font-bold rounded-2xl text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
             >
               {loading ? (
                 <>
@@ -579,13 +598,13 @@ export default function Signup() {
               <div className="text-center">
                 {resendTimer > 0 ? (
                   <p className="text-sm text-gray-600">
-                    Resend OTP in <span className="font-bold text-green-600">{resendTimer}s</span>
+                    Resend OTP in <span className="font-bold text-green-600">{formatTime(resendTimer)}</span>
                   </p>
                 ) : (
                   <button
                     type="button"
                     onClick={handleResendOtp}
-                    className="text-sm font-semibold text-green-700 hover:text-green-800 transition-colors"
+                    className="text-sm font-semibold text-green-700 hover:text-green-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 rounded"
                   >
                     Resend OTP
                   </button>
@@ -598,7 +617,7 @@ export default function Signup() {
                 whileTap={{ scale: loading ? 1 : 0.98 }}
                 type="submit"
                 disabled={loading || !isOtpComplete}
-                className="w-full py-4 px-4 text-lg font-bold rounded-2xl text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-4 px-4 text-lg font-bold rounded-2xl text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
               >
                 {loading ? (
                   <>
@@ -621,7 +640,7 @@ export default function Signup() {
                   setOtpCode(["", "", "", "", "", ""]);
                   setError("");
                 }}
-                className="w-full text-sm font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+                className="w-full text-sm font-semibold text-gray-600 hover:text-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 rounded"
               >
                 ← Back to form
               </button>

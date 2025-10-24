@@ -251,8 +251,12 @@ function Dashboard() {
       const result = await response.json();
 
       if (result.success && result.data && result.data.data) {
-        // Filter only active towers (status = 'ACTIVE')
-        const activeTowers = result.data.data.filter(tower => tower.status === 'ACTIVE');
+        // Get all active towers (status = 'ACTIVE')
+        let activeTowers = result.data.data.filter(tower => tower.status === 'ACTIVE');
+        
+        // Check device connectivity and deactivate towers without devices
+        activeTowers = await checkAndFilterTowersWithDevices(activeTowers);
+        
         setTowers(activeTowers);
         setTowersError(null);
       } else {
@@ -263,6 +267,88 @@ function Dashboard() {
       setTowersError('Error loading towers');
     } finally {
       setTowersLoading(false);
+    }
+  };
+  
+  // Check if towers have connected devices, deactivate those without, and return only towers with devices
+  const checkAndFilterTowersWithDevices = async (towers) => {
+    try {
+      const towersWithDevices = [];
+      
+      for (const tower of towers) {
+        const hasDevice = await checkTowerHasDevice(tower.id);
+        
+        if (!hasDevice) {
+          console.log(`Dashboard: Tower ${tower.name} (ID: ${tower.id}) is ACTIVE but has no connected devices. Setting to INACTIVE.`);
+          
+          // Update tower status to INACTIVE in the backend
+          await updateTowerStatusToInactive(tower.id, tower);
+          // Don't include this tower in active towers list
+        } else {
+          // Tower has device, include it
+          towersWithDevices.push(tower);
+        }
+      }
+      
+      return towersWithDevices;
+    } catch (error) {
+      console.error('Error checking tower device connectivity:', error);
+      return towers; // Return original list if check fails
+    }
+  };
+  
+  // Check if a tower has connected devices
+  const checkTowerHasDevice = async (towerId) => {
+    try {
+      const res = await fetch(`/apis/getTowerDevices/${towerId}`);
+      const result = await res.json();
+      if (res.ok && result.success) {
+        const devices = result.data?.data || result.data;
+        return Array.isArray(devices) && devices.length > 0;
+      }
+    } catch (e) {
+      console.error('Error checking tower devices:', e);
+    }
+    return false;
+  };
+  
+  // Helper function to update tower status to INACTIVE
+  const updateTowerStatusToInactive = async (towerId, towerData) => {
+    try {
+      const payload = {
+        id: towerId,
+        user: towerData.user,
+        plant: towerData.plant,
+        name: towerData.name,
+        frequency: towerData.frequency,
+        start_date: towerData.start_date || towerData.startDate,
+        end_date: towerData.end_date || towerData.endDate,
+        status: 'INACTIVE', // Force to INACTIVE
+        water_level: towerData.water_level || towerData.waterLevel,
+        watering_duration: towerData.watering_duration || towerData.wateringDuration || 15,
+        schedules: (towerData.schedules || []).map(s => ({
+          id: s.id,
+          start_time: s.start_time || s.time,
+          duration: s.duration
+        }))
+      };
+      
+      const response = await fetch(`/apis/updateTower/${towerId}`, {
+        method: "PUT",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!response.ok) {
+        const err = await response.json();
+        console.error('Error updating tower status to inactive:', err);
+      } else {
+        console.log('Tower status updated to INACTIVE successfully');
+      }
+    } catch (error) {
+      console.error('Error updating tower status:', error);
     }
   };
 
@@ -543,7 +629,7 @@ function Dashboard() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-8 relative overflow-hidden"
+            className="mb-8 relative"
           >
             {/* Decorative background */}
             <div className="absolute -top-4 -left-4 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
@@ -876,7 +962,7 @@ function Dashboard() {
                   </div>
 
                   {/* Water Level Label */}
-                  <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-gray-700 z-10">
+                  <div className="absolute inset-0 flex items-center justify-center font-bold text-md text-gray-700 z-10">
                     {getWaterLevelText(sensorData.rawWaterLevel)}
                   </div>
                   </div>
@@ -995,7 +1081,8 @@ function Dashboard() {
                     <button
                       onClick={handlePrevPage}
                       disabled={currentPage === 0}
-                      className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                      aria-label="Previous page"
+                      className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
                         currentPage === 0
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                           : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 hover:shadow-lg'
@@ -1012,7 +1099,9 @@ function Dashboard() {
                         <button
                           key={i}
                           onClick={() => setCurrentPage(i)}
-                          className={`w-10 h-10 rounded-xl font-semibold transition-all duration-300 ${
+                          aria-label={`Go to page ${i + 1}`}
+                          aria-current={currentPage === i ? 'page' : undefined}
+                          className={`w-10 h-10 rounded-xl font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
                             currentPage === i
                               ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg scale-110'
                               : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300'
@@ -1026,7 +1115,8 @@ function Dashboard() {
                     <button
                       onClick={handleNextPage}
                       disabled={currentPage === totalPages - 1}
-                      className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                      aria-label="Next page"
+                      className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
                         currentPage === totalPages - 1
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                           : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 hover:shadow-lg'

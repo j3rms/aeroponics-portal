@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Pencil, Trash2, Plus, X, Building2, Leaf, Loader2, Clock, Calendar, Droplets, RefreshCw, Edit3, Cpu, Info } from "lucide-react";
+import { Pencil, Trash2, Plus, X, Building2, Leaf, Loader2, Clock, Calendar, Droplets, RefreshCw, Edit3, Cpu, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import Footer from "@/components/footer";
 import Link from "next/link";
@@ -32,15 +32,72 @@ function ManageTower() {
   const [editingTower, setEditingTower] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loadingTowerData, setLoadingTowerData] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const towersPerPage = 8;
+  const [towerFilter, setTowerFilter] = useState('most_recent');
+  const [filteredTowers, setFilteredTowers] = useState([]);
   
   // Device assignment states
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [deviceAssignTower, setDeviceAssignTower] = useState(null);
   
+  // Device connectivity tracking - maps tower ID to boolean
+  const [towerDeviceStatus, setTowerDeviceStatus] = useState({});
+  
   // Delete confirmation modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [towerToDelete, setTowerToDelete] = useState(null);
   
+  // Filter and sort towers based on tower filter
+  useEffect(() => {
+    if (towers.length === 0) {
+      setFilteredTowers([]);
+      return;
+    }
+
+    let filtered = [...towers];
+
+    // Sort based on selected option using created_at from database only
+    if (towerFilter === 'most_recent') {
+      // Sort by created_at (most recent first)
+      filtered.sort((a, b) => {
+        const dateStrA = a.created_at || a.createdAt;
+        const dateStrB = b.created_at || b.createdAt;
+
+        // If missing timestamps, fall back to id (assuming auto-increment)
+        if (!dateStrA || !dateStrB) {
+          const idA = Number(a.id) || 0;
+          const idB = Number(b.id) || 0;
+          return idB - idA; // higher id as more recent
+        }
+
+        const dateA = new Date(dateStrA);
+        const dateB = new Date(dateStrB);
+        return dateB.getTime() - dateA.getTime();
+      });
+    } else if (towerFilter === 'oldest') {
+      // Sort by created_at (oldest first)
+      filtered.sort((a, b) => {
+        const dateStrA = a.created_at || a.createdAt;
+        const dateStrB = b.created_at || b.createdAt;
+
+        // If missing timestamps, fall back to id (assuming auto-increment)
+        if (!dateStrA || !dateStrB) {
+          const idA = Number(a.id) || 0;
+          const idB = Number(b.id) || 0;
+          return idA - idB; // lower id as older
+        }
+
+        const dateA = new Date(dateStrA);
+        const dateB = new Date(dateStrB);
+        return dateA.getTime() - dateB.getTime();
+      });
+    }
+
+    setFilteredTowers(filtered);
+    setCurrentPage(0); // Reset to first page when filter changes
+  }, [towers, towerFilter]);
+
   // Fetch towers from backend API
   useEffect(() => {
     fetchTowers();
@@ -55,12 +112,45 @@ function ManageTower() {
       if (towersResponse.success && towersResponse.data && towersResponse.data.data) {
         // Show active and inactive towers, but exclude archived ones
         const nonArchivedTowers = towersResponse.data.data.filter(tower => tower.status !== 'ARCHIVED');
+        
+        // Check device connectivity for ACTIVE towers and auto-deactivate if no devices connected
+        await checkAndDeactivateTowersWithoutDevices(nonArchivedTowers);
+        
         setTowers(nonArchivedTowers);
       }
     } catch (error) {
       console.error("Error fetching towers:", error);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Check if active towers have devices, and deactivate them if not
+  const checkAndDeactivateTowersWithoutDevices = async (towers) => {
+    try {
+      const deviceStatusMap = {};
+      
+      // Check all towers (not just active) for device connectivity
+      for (const tower of towers) {
+        const hasDevice = await checkTowerHasDevice(tower.id);
+        deviceStatusMap[tower.id] = hasDevice;
+        
+        // Only deactivate if tower is ACTIVE but has no devices
+        if (tower.status === 'ACTIVE' && !hasDevice) {
+          console.log(`Tower ${tower.name} (ID: ${tower.id}) is ACTIVE but has no connected devices. Setting to INACTIVE.`);
+          
+          // Update tower status to INACTIVE in the backend
+          await updateTowerStatusToInactive(tower.id, tower);
+          
+          // Update the tower object in the local array
+          tower.status = 'INACTIVE';
+        }
+      }
+      
+      // Update device status state
+      setTowerDeviceStatus(deviceStatusMap);
+    } catch (error) {
+      console.error('Error checking tower device connectivity:', error);
     }
   };
 
@@ -155,6 +245,10 @@ function ManageTower() {
       
       console.log('Fetched tower data:', towerData);
       
+      // Check if tower has connected devices
+      const hasDevice = await checkTowerHasDevice(tower.id);
+      console.log('Tower has device:', hasDevice);
+      
       // Extract watering times from schedules
       const schedules = towerData.schedules || [];
       const wateringTimes = schedules.map(s => {
@@ -175,10 +269,13 @@ function ManageTower() {
       console.log('Extracted watering times:', wateringTimes);
       
       // Prepare tower data for editing with fresh data
+      // If no device is connected, force status to INACTIVE regardless of backend status
+      const shouldBeActive = hasDevice && towerData.status === 'ACTIVE';
+      
       setEditingTower({
         id: towerData.id,
         name: towerData.name,
-        status: towerData.status === 'ACTIVE', // Convert enum string to boolean for UI
+        status: shouldBeActive, // Convert enum string to boolean for UI, but only if device is connected
         startDate: towerData.start_date || towerData.startDate,
         endDate: towerData.end_date || towerData.endDate,
         frequency: frequency,
@@ -189,6 +286,13 @@ function ManageTower() {
         schedules: schedules,
         wateringTimes: wateringTimes,
       });
+      
+      // If tower was supposed to be active but has no device, update backend to INACTIVE
+      if (!hasDevice && towerData.status === 'ACTIVE') {
+        console.log('Tower has no device but status is ACTIVE, updating to INACTIVE');
+        await updateTowerStatusToInactive(tower.id, towerData);
+        toast('Tower status set to inactive - disconnected');
+      }
     } catch (error) {
       console.error('Error fetching tower data:', error);
       toast.error('Failed to load tower data. Please try again.');
@@ -207,18 +311,42 @@ function ManageTower() {
     setShowDeviceModal(true);
   };
 
-  const handleDeviceModalClose = (assigned) => {
+  const handleDeviceModalClose = async (assigned) => {
     setShowDeviceModal(false);
+    const towerId = deviceAssignTower?.id;
     setDeviceAssignTower(null);
+    
     if (assigned) {
-      // Mark current editing tower as active and refresh towers list
+      // Device was assigned successfully
       setEditingTower((prev) => (prev ? { ...prev, status: true } : prev));
+      
+      // Update device status for this tower
+      setTowerDeviceStatus(prev => ({ ...prev, [towerId]: true }));
+      
       fetchTowers();
-      toast.success('Device assigned. You can now activate this tower.');
+      toast.success('Device assigned. Tower is now ready to be activated.');
     } else {
-      // Keep tower inactive until a device is assigned
-      setEditingTower((prev) => (prev ? { ...prev, status: false } : prev));
-      toast.error('Tower remains inactive until a device is assigned.');
+      // Device was not assigned or was disconnected
+      // Check if tower still has any devices
+      if (towerId) {
+        const hasDevice = await checkTowerHasDevice(towerId);
+        
+        // Update device status for this tower
+        setTowerDeviceStatus(prev => ({ ...prev, [towerId]: hasDevice }));
+        
+        if (!hasDevice) {
+          // No devices connected, force status to inactive
+          setEditingTower((prev) => (prev ? { ...prev, status: false } : prev));
+          
+          // Update backend to set status to INACTIVE
+          if (editingTower) {
+            await updateTowerStatusToInactive(towerId, editingTower);
+          }
+          
+          toast('Tower status set to inactive - disconnected');
+          fetchTowers();
+        }
+      }
     }
   };
 
@@ -262,6 +390,46 @@ function ManageTower() {
       ...prev,
       [field]: value,
     }));
+  };
+
+  // Helper function to update tower status to INACTIVE when no device is connected
+  const updateTowerStatusToInactive = async (towerId, towerData) => {
+    try {
+      const payload = {
+        id: towerId,
+        user: towerData.user,
+        plant: towerData.plant,
+        name: towerData.name,
+        frequency: towerData.frequency,
+        start_date: towerData.start_date || towerData.startDate,
+        end_date: towerData.end_date || towerData.endDate,
+        status: 'INACTIVE', // Force to INACTIVE
+        water_level: towerData.water_level || towerData.waterLevel,
+        watering_duration: towerData.watering_duration || towerData.wateringDuration || 15,
+        schedules: (towerData.schedules || []).map(s => ({
+          id: s.id,
+          start_time: s.start_time || s.time,
+          duration: s.duration
+        }))
+      };
+      
+      const response = await fetch(`/apis/updateTower/${towerId}`, {
+        method: "PUT",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!response.ok) {
+        const err = await response.json();
+        console.error('Error updating tower status to inactive:', err);
+      } else {
+        console.log('Tower status updated to INACTIVE successfully');
+      }
+    } catch (error) {
+      console.error('Error updating tower status:', error);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -403,6 +571,21 @@ function ManageTower() {
     return freq || 1;
   };
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredTowers.length / towersPerPage);
+  const startIndex = currentPage * towersPerPage;
+  const endIndex = startIndex + towersPerPage;
+  const currentTowers = filteredTowers.slice(startIndex, endIndex);
+
+  // Navigation handlers
+  const handlePrevPage = () => {
+    setCurrentPage(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+  };
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 md:pl-64 overflow-x-hidden">
       <div className="flex flex-col flex-1">
@@ -412,7 +595,7 @@ function ManageTower() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-12 relative overflow-hidden"
+            className="mb-12 relative"
           >
             {/* Decorative background */}
             <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
@@ -437,7 +620,7 @@ function ManageTower() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-7 py-3 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                  className="flex items-center gap-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-7 py-3 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
                 >
                   <Plus className="w-5 h-5" />
                   New Tower
@@ -446,6 +629,49 @@ function ManageTower() {
             </div>
           </motion.div>
 
+          {/* Tower Sort Filter */}
+          {!loading && towers.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <Leaf className="w-6 h-6 text-white" />
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                    All Towers
+                  </h2>
+                </div>
+                
+                {/* Sort Dropdown */}
+                <div className="relative group">
+                  <div className="flex items-center gap-2 bg-gradient-to-br from-white to-green-50/30 backdrop-blur-sm px-4 md:px-5 py-2.5 md:py-3 rounded-2xl shadow-md hover:shadow-xl border-2 border-green-200/60 transition-all duration-300 w-full md:w-auto">
+                    <div className="flex items-center gap-2 text-green-700">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                      </svg>
+                      <span className="text-sm font-semibold hidden md:inline">Sort:</span>
+                    </div>
+                    <select
+                      value={towerFilter}
+                      onChange={(e) => setTowerFilter(e.target.value)}
+                      className="bg-transparent outline-none text-sm font-semibold text-gray-700 cursor-pointer appearance-none pr-8 min-w-[160px] md:min-w-[180px]"
+                    >
+                      <option value="most_recent">Most Recent First</option>
+                      <option value="oldest">Oldest First</option>
+                    </select>
+                    <svg className="w-4 h-4 text-green-600 absolute right-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* Towers Grid */}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20">
@@ -453,8 +679,9 @@ function ManageTower() {
               <p className="text-gray-600 text-lg">Loading towers...</p>
             </div>
           ) : towers.length > 0 ? (
-            <div className="mt-8 md:mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
-              {towers.map((tower, index) => (
+            <div>
+              <div className="mt-8 md:mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
+                {currentTowers.map((tower, index) => (
                 <motion.div
                   key={tower.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -516,17 +743,86 @@ function ManageTower() {
                           Delete
                         </button>
                       </div>
-                      <button
-                        onClick={() => handleConnectDevice(tower)}
-                        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 border-2 border-blue-200 rounded-xl hover:bg-blue-100 hover:border-blue-300 transition-all"
+                      
+                      {/* Device Connection Status Indicator */}
+                      <div 
+                        className={`flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-semibold rounded-xl border-2 ${
+                          towerDeviceStatus[tower.id] 
+                            ? 'bg-green-50 border-green-200 text-green-700'
+                            : 'bg-red-50 border-red-200 text-red-700'
+                        }`}
+                        title={towerDeviceStatus[tower.id] ? 'Device is connected' : 'Device not connected'}
                       >
-                        <Cpu className="w-4 h-4" />
-                        Connect Device
-                      </button>
+                        <Cpu className={`w-4 h-4 ${
+                          towerDeviceStatus[tower.id] ? 'text-green-700' : 'text-red-700'
+                        }`} />
+                        <span>
+                          {towerDeviceStatus[tower.id] ? 'Device Connected' : 'Device Not Connected'}
+                        </span>
+                        <div className={`w-2 h-2 rounded-full ${
+                          towerDeviceStatus[tower.id] ? 'bg-green-700 animate-pulse' : 'bg-red-700'
+                        }`}></div>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
               ))}
+              </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-8">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 0}
+                    aria-label="Previous page"
+                    className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
+                      currentPage === 0
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 hover:shadow-lg'
+                    }`}
+                  >
+                    <ChevronLeft className={`w-5 h-5 transition-transform ${
+                      currentPage !== 0 ? 'group-hover:-translate-x-1' : ''
+                    }`} />
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: totalPages }, (_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i)}
+                        aria-label={`Go to page ${i + 1}`}
+                        aria-current={currentPage === i ? 'page' : undefined}
+                        className={`w-10 h-10 rounded-xl font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
+                          currentPage === i
+                            ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg scale-110'
+                            : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300'
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages - 1}
+                    aria-label="Next page"
+                    className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 ${
+                      currentPage === totalPages - 1
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 hover:shadow-lg'
+                    }`}
+                  >
+                    Next
+                    <ChevronRight className={`w-5 h-5 transition-transform ${
+                      currentPage !== totalPages - 1 ? 'group-hover:translate-x-1' : ''
+                    }`} />
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             /* Empty State */
