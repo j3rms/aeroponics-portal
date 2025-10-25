@@ -396,13 +396,13 @@ const CreateTower = () => {
     }
   };
 
-  // Utility: generate  // Default time intervals with duration (e.g., 8:00, 14:00, 20:00) - default 15 min duration
+  // Utility: generate  // Default time intervals with duration (e.g., 8:00, 14:00, 20:00) - default 30 sec duration
   const generateDefaultTimes = (freq) => {
     const times = [];
     const interval = Math.floor(24 / freq);
     for (let i = 0; i < freq; i++) {
       const hour = (8 + i * interval) % 24;
-      times.push({ time: `${String(hour).padStart(2, '0')}:00`, duration: 15 });
+      times.push({ time: `${String(hour).padStart(2, '0')}:00`, duration: 30 });
     }
     return times;
   };
@@ -442,8 +442,8 @@ const CreateTower = () => {
     }
     setWateringFrequency(freq.toString());
 
-    // For custom, create empty slots with default duration
-    setWateringTimes(Array(freq).fill(null).map(() => ({ time: "", duration: 15 })));
+    // For custom, create empty slots with default duration (30 seconds)
+    setWateringTimes(Array(freq).fill(null).map(() => ({ time: "", duration: 30 })));
 
     setShowFrequencyModal(false);
     setCustomFrequency('');
@@ -455,14 +455,16 @@ const CreateTower = () => {
     
     const [newHour, newMinute] = newTime.split(':').map(Number);
     const newStartMinutes = newHour * 60 + newMinute;
-    const newEndMinutes = newStartMinutes + newDuration;
+    const newDurationMinutes = newDuration / 60; // Convert seconds to minutes
+    const newEndMinutes = newStartMinutes + newDurationMinutes;
     
     for (let i = 0; i < wateringTimes.length; i++) {
       if (i === currentIndex || !wateringTimes[i].time) continue;
       
       const [existingHour, existingMinute] = wateringTimes[i].time.split(':').map(Number);
       const existingStartMinutes = existingHour * 60 + existingMinute;
-      const existingEndMinutes = existingStartMinutes + wateringTimes[i].duration;
+      const existingDurationMinutes = wateringTimes[i].duration / 60; // Convert seconds to minutes
+      const existingEndMinutes = existingStartMinutes + existingDurationMinutes;
       
       // Check if there's any overlap
       if (
@@ -498,7 +500,7 @@ const CreateTower = () => {
     setWateringTimes(updated);
   };
 
-  // Duration input handler: allow erase, accept only 1..120, propagate to all sessions
+  // Duration input handler: allow erase, accept only 1..300, propagate to all sessions
   const handleDurationTextChange = (value) => {
     setDurationText(value);
     if (value === '') {
@@ -512,11 +514,11 @@ const CreateTower = () => {
       setWateringTimes(updated);
       return;
     }
-    if (n > 0 && n <= 120) {
+    if (n > 0 && n <= 300) {
       const updated = wateringTimes.map(s => ({ ...s, duration: n }));
       setWateringTimes(updated);
     } else {
-      // mark as invalid (0 or below / > 120) so submission will not pass
+      // mark as invalid (0 or below / > 300) so submission will not pass
       const updated = wateringTimes.map(s => ({ ...s, duration: 0 }));
       setWateringTimes(updated);
     }
@@ -540,7 +542,7 @@ const CreateTower = () => {
   // Update individual watering duration
   const handleDurationChange = (index, value) => {
     const duration = parseInt(value);
-    if (duration > 0 && duration <= 120) { // Max 120 minutes (2 hours)
+    if (duration > 0 && duration <= 300) { // Max 300 seconds (5 minutes)
       const updated = [...wateringTimes];
       
       // If this is the first schedule, apply duration to all schedules
@@ -588,11 +590,11 @@ const CreateTower = () => {
       start_date: formatDateLocal(startDate),
       end_date: formatDateLocal(endDate),
       status: 'INACTIVE', // New towers start INACTIVE, become ACTIVE only when device assigned
-      watering_duration: wateringTimes[0].duration, // Duration in minutes (same for all sessions)
+      watering_duration: wateringTimes[0].duration, // Duration in seconds (same for all sessions)
       schedules: wateringTimes.map((schedule) => ({
         id: 0, // New schedule, no ID yet
         start_time: schedule.time, // HH:mm format
-        duration: schedule.duration // Duration in minutes
+        duration: schedule.duration // Duration in seconds
       }))
     };
 
@@ -955,9 +957,9 @@ const CreateTower = () => {
                         onPaste={handleNumericPaste}
                         onChange={(e) => handleDurationTextChange(e.target.value.replace(/\D/g, ''))}
                         className="w-20 px-3 py-2 rounded-lg border border-green-300 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm font-semibold"
-                        placeholder="15"
+                        placeholder="30"
                       />
-                      <span className="text-xs font-medium text-gray-700">min for all {wateringTimes.length} session{wateringTimes.length > 1 ? 's' : ''}</span>
+                      <span className="text-xs font-medium text-gray-700">sec for all {wateringTimes.length} session{wateringTimes.length > 1 ? 's' : ''}</span>
                     </div>
                   </div>
 
@@ -986,7 +988,8 @@ const CreateTower = () => {
                             <p className="text-[10px] text-orange-600 font-medium mt-1.5">
                               ⏰ {schedule.time} - {(() => {
                                 const [h, m] = schedule.time.split(':').map(Number);
-                                const endMinutes = h * 60 + m + schedule.duration;
+                                const durationMinutes = schedule.duration / 60; // Convert seconds to minutes
+                                const endMinutes = h * 60 + m + durationMinutes;
                                 const endH = Math.floor(endMinutes / 60) % 24;
                                 const endM = endMinutes % 60;
                                 return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
