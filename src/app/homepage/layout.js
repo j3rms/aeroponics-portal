@@ -1,6 +1,8 @@
+"use client";
 import Sidebar from "@/components/sidebar";
+import withAuth from "@/components/withAuth";
 
-export default function Layout({ children }) {
+function Layout({ children }) {
   return (
     <div className="min-h-screen">
       <Sidebar />
@@ -8,3 +10,5 @@ export default function Layout({ children }) {
     </div>
   );
 }
+
+export default withAuth(Layout);

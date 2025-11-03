@@ -27,11 +27,10 @@ const CreateTower = () => {
   const [customPlantData, setCustomPlantData] = useState(null);
 
   // Watering states
-  const [wateringFrequency, setWateringFrequency] = useState('');
-  const [wateringTimes, setWateringTimes] = useState([]); // Array of {time: string, duration: number}
-  const [customFrequency, setCustomFrequency] = useState('');
-  const [showFrequencyModal, setShowFrequencyModal] = useState(false);
-  const [durationText, setDurationText] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [duration, setDuration] = useState('');
+  const [intervals, setIntervals] = useState('');
 
   // Calendar states
   const [startDate, setStartDate] = useState(null);
@@ -224,12 +223,20 @@ const CreateTower = () => {
         }
         return true;
       case 4:
-        if (!wateringFrequency) {
-          toast.error('Please select watering frequency');
+        if (!startTime) {
+          toast.error('Please enter start time');
           return false;
         }
-        if (wateringTimes.length === 0 || wateringTimes.some(t => !t.time || !t.duration)) {
-          toast.error('Please set all watering times and durations');
+        if (!endTime) {
+          toast.error('Please enter end time');
+          return false;
+        }
+        if (!duration || parseInt(duration) <= 0) {
+          toast.error('Please enter a valid duration');
+          return false;
+        }
+        if (!intervals || parseInt(intervals) < 6) {
+          toast.error('Please enter a valid interval (minimum 6 minutes)');
           return false;
         }
         return true;
@@ -396,168 +403,6 @@ const CreateTower = () => {
     }
   };
 
-  // Utility: generate  // Default time intervals with duration (e.g., 8:00, 14:00, 20:00) - default 30 sec duration
-  const generateDefaultTimes = (freq) => {
-    const times = [];
-    const interval = Math.floor(24 / freq);
-    for (let i = 0; i < freq; i++) {
-      const hour = (8 + i * interval) % 24;
-      times.push({ time: `${String(hour).padStart(2, '0')}:00`, duration: 30 });
-    }
-    return times;
-  };
-
-  // Keep duration text in sync when number of sessions changes
-  useEffect(() => {
-    if (wateringTimes.length > 0) {
-      const d = wateringTimes[0].duration;
-      setDurationText(d === undefined || d === null ? '' : String(d));
-    } else {
-      setDurationText('');
-    }
-  }, [wateringTimes.length]);
-
-  // Frequency dropdown
-  const handleFrequencyChange = (value) => {
-    if (value === 'custom') {
-      setShowFrequencyModal(true);
-    } else {
-      setWateringFrequency(value);
-      const freq = parseInt(value);
-      if (!isNaN(freq)) {
-        setWateringTimes(generateDefaultTimes(freq)); // default 8:00 + 6hr interval
-      } else {
-        setWateringTimes([]);
-      }
-    }
-  };
-
-
-  // Save custom frequency
-  const handleCustomFrequencySave = () => {
-    const freq = parseInt(customFrequency);
-    if (!freq || freq <= 0) {
-      alert('Please enter a valid custom frequency');
-      return;
-    }
-    setWateringFrequency(freq.toString());
-
-    // For custom, create empty slots with default duration (30 seconds)
-    setWateringTimes(Array(freq).fill(null).map(() => ({ time: "", duration: 30 })));
-
-    setShowFrequencyModal(false);
-    setCustomFrequency('');
-  };
-
-  // Helper function to check if a time overlaps with existing schedules
-  const isTimeOverlapping = (newTime, newDuration, currentIndex) => {
-    if (!newTime) return false;
-    
-    const [newHour, newMinute] = newTime.split(':').map(Number);
-    const newStartMinutes = newHour * 60 + newMinute;
-    const newDurationMinutes = newDuration / 60; // Convert seconds to minutes
-    const newEndMinutes = newStartMinutes + newDurationMinutes;
-    
-    for (let i = 0; i < wateringTimes.length; i++) {
-      if (i === currentIndex || !wateringTimes[i].time) continue;
-      
-      const [existingHour, existingMinute] = wateringTimes[i].time.split(':').map(Number);
-      const existingStartMinutes = existingHour * 60 + existingMinute;
-      const existingDurationMinutes = wateringTimes[i].duration / 60; // Convert seconds to minutes
-      const existingEndMinutes = existingStartMinutes + existingDurationMinutes;
-      
-      // Check if there's any overlap
-      if (
-        (newStartMinutes >= existingStartMinutes && newStartMinutes < existingEndMinutes) ||
-        (newEndMinutes > existingStartMinutes && newEndMinutes <= existingEndMinutes) ||
-        (newStartMinutes <= existingStartMinutes && newEndMinutes >= existingEndMinutes)
-      ) {
-        return true;
-      }
-    }
-    
-    return false;
-  };
-
-  // Update individual watering time
-  const handleTimeChange = (index, value) => {
-    if (!value) {
-      const updated = [...wateringTimes];
-      updated[index] = { ...updated[index], time: value };
-      setWateringTimes(updated);
-      return;
-    }
-    
-    // Check for overlaps
-    const duration = wateringTimes[index].duration;
-    if (isTimeOverlapping(value, duration, index)) {
-      toast.error('This time conflicts with another watering schedule!');
-      return;
-    }
-    
-    const updated = [...wateringTimes];
-    updated[index] = { ...updated[index], time: value };
-    setWateringTimes(updated);
-  };
-
-  // Duration input handler: allow erase, accept only 1..300, propagate to all sessions
-  const handleDurationTextChange = (value) => {
-    setDurationText(value);
-    if (value === '') {
-      const updated = wateringTimes.map(s => ({ ...s, duration: undefined }));
-      setWateringTimes(updated);
-      return;
-    }
-    const n = parseInt(value, 10);
-    if (Number.isNaN(n)) {
-      const updated = wateringTimes.map(s => ({ ...s, duration: undefined }));
-      setWateringTimes(updated);
-      return;
-    }
-    if (n > 0 && n <= 300) {
-      const updated = wateringTimes.map(s => ({ ...s, duration: n }));
-      setWateringTimes(updated);
-    } else {
-      // mark as invalid (0 or below / > 300) so submission will not pass
-      const updated = wateringTimes.map(s => ({ ...s, duration: 0 }));
-      setWateringTimes(updated);
-    }
-  };
-
-  const handleNumericKeyDown = (e) => {
-    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
-    if (allowed.includes(e.key)) return;
-    if ((e.ctrlKey || e.metaKey) && ['a','c','v','x','A','C','V','X'].includes(e.key)) return;
-    if (/^[0-9]$/.test(e.key)) return;
-    e.preventDefault();
-  };
-
-  const handleNumericPaste = (e) => {
-    const text = e.clipboardData.getData('text');
-    const digits = text.replace(/\D/g, '');
-    e.preventDefault();
-    handleDurationTextChange(digits);
-  };
-
-  // Update individual watering duration
-  const handleDurationChange = (index, value) => {
-    const duration = parseInt(value);
-    if (duration > 0 && duration <= 300) { // Max 300 seconds (5 minutes)
-      const updated = [...wateringTimes];
-      
-      // If this is the first schedule, apply duration to all schedules
-      if (index === 0) {
-        updated.forEach((schedule, i) => {
-          updated[i] = { ...updated[i], duration: duration };
-        });
-      } else {
-        // For other schedules, just update the current one
-        updated[index] = { ...updated[index], duration: duration };
-      }
-      
-      setWateringTimes(updated);
-    }
-  };
   // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -565,8 +410,8 @@ const CreateTower = () => {
     const plant =
       selectedPlant === 'custom' ? customPlantData : plants.find((p) => p.name === selectedPlant);
 
-    if (!towerName || !plant || wateringTimes.length === 0 || wateringTimes.some(t => !t.time || !t.duration) || !wateringFrequency || !startDate || !endDate) {
-      toast.error('Please complete all fields including watering times and durations');
+    if (!towerName || !plant || !startTime || !endTime || !duration || !intervals || !startDate || !endDate) {
+      toast.error('Please complete all fields');
       return;
     }
 
@@ -577,25 +422,18 @@ const CreateTower = () => {
 
     setIsSubmitting(true);
 
-    // Create tower: default status is INACTIVE until device assignment
-    // Backend enforces this and will activate tower only when device is connected
-    // Status flow: INACTIVE (created) -> ACTIVE (device assigned) -> ARCHIVED (deleted)
+    // Create tower with new watering schedule structure
     const payload = {
       name: towerName,
-      user: { id: currentUserId }, // Use current logged-in user ID
+      user: { id: currentUserId },
       plant: { id: plant.id },
-      time: wateringTimes[0].time, // First watering time (HH:mm format, no seconds)
-      water_level: 5, // Default to medium (1-3=High, 4-7=Medium, 8-10=Low)
-      frequency: parseInt(wateringFrequency),
       start_date: formatDateLocal(startDate),
       end_date: formatDateLocal(endDate),
-      status: 'INACTIVE', // New towers start INACTIVE, become ACTIVE only when device assigned
-      watering_duration: wateringTimes[0].duration, // Duration in seconds (same for all sessions)
-      schedules: wateringTimes.map((schedule) => ({
-        id: 0, // New schedule, no ID yet
-        start_time: schedule.time, // HH:mm format
-        duration: schedule.duration // Duration in seconds
-      }))
+      start_time: startTime, // HH:mm format
+      end_time: endTime, // HH:mm format
+      watering_duration: parseInt(duration), // Duration in seconds
+      intervals: parseInt(intervals), // Interval in minutes
+      status: 'INACTIVE' // New towers start INACTIVE, become ACTIVE only when device assigned
     };
 
     // Defer creation until device modal is answered
@@ -902,106 +740,104 @@ const CreateTower = () => {
                 transition={{ duration: 0.5, delay: 0.3 }}
                 className="bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-green-100 shadow-lg hover:shadow-2xl transition-all duration-300 p-8 lg:col-span-2"
               >
-              <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
-                <RefreshCw className="w-5 h-5 text-green-600" />
-                Watering Schedule
-              </h2>
-              <p className="text-sm text-gray-600 mb-6">
-                Set how many times per day the system should water, then configure the duration and specific start times for each watering session.
-              </p>
+                <h2 className="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                  <RefreshCw className="w-5 h-5 text-green-600" />
+                  Watering Schedule
+                </h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Configure the watering schedule for your tower by setting the time window, duration, and interval between watering cycles.
+                </p>
 
-              {/* Watering Frequency */}
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Watering Frequency
-              </label>
-              <select
-                value={wateringFrequency}
-                onChange={(e) => handleFrequencyChange(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all mb-6"
-              >
-                <option value="">Select frequency</option>
-                <option value="1">Once a day</option>
-                <option value="2">Twice a day</option>
-                <option value="3">3 times a day</option>
-                <option value="4">4 times a day</option>
-                <option value="custom">Custom...</option>
-              </select>
-
-              {/* Dynamic Watering Times */}
-              {wateringTimes.length > 0 && (
-                <div className="space-y-4">
-                  {/* Info Banner */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                    <div className="flex items-start gap-1.5">
-                      <Info className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <p className="text-[11px] text-blue-700">
-                        <strong>Tip:</strong> Set duration once → applies to all sessions. Times can't overlap.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Duration Section */}
-                  <div className="bg-green-50 border border-green-300 rounded-lg p-3">
-                    <label className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-green-600" /> 
-                      Duration (All Sessions)
-                    </label>
-                    
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={durationText}
-                        onKeyDown={handleNumericKeyDown}
-                        onPaste={handleNumericPaste}
-                        onChange={(e) => handleDurationTextChange(e.target.value.replace(/\D/g, ''))}
-                        className="w-20 px-3 py-2 rounded-lg border border-green-300 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm font-semibold"
-                        placeholder="30"
-                      />
-                      <span className="text-xs font-medium text-gray-700">sec for all {wateringTimes.length} session{wateringTimes.length > 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-
-                  {/* Times Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Start Time */}
                   <div>
-                    <label className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-blue-600" /> 
-                      Start Times
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      <Clock className="w-4 h-4 inline mr-2 text-green-600" />
+                      Start Time
                     </label>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {wateringTimes.map((schedule, index) => (
-                        <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                          <label className="text-[11px] font-semibold text-gray-600 mb-1.5 block">Session {index + 1}</label>
-                          
-                          <input
-                            type="time"
-                            value={schedule.time}
-                            onChange={(e) => handleTimeChange(index, e.target.value)}
-                            step="60"
-                            className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
-                            placeholder="Hour"
-                          />
-                          
-                          {schedule.time && schedule.duration && (
-                            <p className="text-[10px] text-orange-600 font-medium mt-1.5">
-                              ⏰ {schedule.time} - {(() => {
-                                const [h, m] = schedule.time.split(':').map(Number);
-                                const durationMinutes = schedule.duration / 60; // Convert seconds to minutes
-                                const endMinutes = h * 60 + m + durationMinutes;
-                                const endH = Math.floor(endMinutes / 60) % 24;
-                                const endM = endMinutes % 60;
-                                return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-                              })()}
-                            </p>
-                          )}
-                        </div>
-                      ))}
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-2">When to start the watering cycle each day</p>
+                  </div>
+
+                  {/* End Time */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      <Clock className="w-4 h-4 inline mr-2 text-green-600" />
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-2">When to end the watering cycle each day</p>
+                  </div>
+
+                  {/* Watering Interval */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      <RefreshCw className="w-4 h-4 inline mr-2 text-blue-600" />
+                      Watering Interval (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      value={intervals}
+                      onChange={(e) => setIntervals(e.target.value)}
+                      min="6"
+                      className={`w-full px-4 py-3 rounded-xl border-2 bg-white shadow-sm focus:ring-2 transition-all ${
+                        intervals && parseInt(intervals) < 6
+                          ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                          : 'border-gray-200 focus:ring-green-500 focus:border-green-500'
+                      }`}
+                      placeholder="60"
+                      required
+                    />
+                    {intervals && parseInt(intervals) < 6 ? (
+                      <p className="text-xs text-red-600 mt-2 font-medium">⚠️ Interval must be at least 6 minutes to prevent interference</p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-2">Time between each watering session (minimum 6 minutes)</p>
+                    )}
+                  </div>
+
+                  {/* Watering Duration */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      <Clock className="w-4 h-4 inline mr-2 text-blue-600" />
+                      Watering Duration (seconds)
+                    </label>
+                    <input
+                      type="number"
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
+                      min="1"
+                      max="300"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      placeholder="30"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-2">How long each watering session lasts (1-300 seconds)</p>
+                  </div>
+                </div>
+
+                {/* Info Banner */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-700">
+                      <p className="font-semibold mb-1">Example:</p>
+                      <p>Start: 08:00, End: 20:00, Interval: 60 min, Duration: 30 sec</p>
+                      <p className="text-xs mt-1">→ Waters for 30 seconds every 60 minutes between 8 AM and 8 PM</p>
                     </div>
                   </div>
                 </div>
-              )}
               </motion.div>
             )}
 
@@ -1281,37 +1117,6 @@ const CreateTower = () => {
               </button>
             </div>
           </motion.div>
-        </div>
-      )}
-
-      {/* Custom Frequency Modal */}
-      {showFrequencyModal && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative">
-            <button
-              onClick={() => setShowFrequencyModal(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Custom Frequency</h2>
-
-            <input
-              type="number"
-              placeholder="Number of times per day"
-              value={customFrequency}
-              onChange={(e) => setCustomFrequency(e.target.value)}
-              className="w-full mb-3 px-4 py-2 rounded-lg border border-gray-200"
-            />
-
-            <button
-              onClick={handleCustomFrequencySave}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700"
-            >
-              Save Frequency
-            </button>
-          </div>
         </div>
       )}
 

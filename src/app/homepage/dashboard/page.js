@@ -13,7 +13,6 @@ import {
   Legend,
 } from "chart.js";
 import { useEffect, useState } from "react";
-import withAuth from "@/components/withAuth";
 
 const LineChart = dynamic(
   () => import("react-chartjs-2").then((mod) => mod.Line),
@@ -1448,4 +1447,4 @@ function Dashboard() {
   );
 }
 
-export default withAuth(Dashboard);
+export default Dashboard;

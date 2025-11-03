@@ -184,17 +184,13 @@ function ManageTower() {
         user: fullTowerData.user,
         plant: fullTowerData.plant,
         name: fullTowerData.name,
-        frequency: fullTowerData.frequency,
         start_date: fullTowerData.start_date || fullTowerData.startDate,
         end_date: fullTowerData.end_date || fullTowerData.endDate,
+        start_time: fullTowerData.start_time || "08:00",
+        end_time: fullTowerData.end_time || "20:00",
+        watering_duration: parseInt(fullTowerData.watering_duration || fullTowerData.wateringDuration || 30),
+        intervals: parseInt(fullTowerData.intervals || 60),
         status: 'ARCHIVED', // Soft delete by archiving
-        water_level: fullTowerData.water_level || fullTowerData.waterLevel,
-        watering_duration: fullTowerData.watering_duration || fullTowerData.wateringDuration || 15,
-        schedules: (fullTowerData.schedules || []).map(s => ({
-          id: s.id,
-          start_time: s.start_time || s.time,
-          duration: s.duration
-        }))
       };
       
       const response = await fetch(`/apis/updateTower/${tower.id}`, {
@@ -249,24 +245,13 @@ function ManageTower() {
       const hasDevice = await checkTowerHasDevice(tower.id);
       console.log('Tower has device:', hasDevice);
       
-      // Extract watering times from schedules
-      const schedules = towerData.schedules || [];
-      const wateringTimes = schedules.map(s => {
-        const time = s.start_time || s.time || "";
-        // Handle both HH:mm and HH:mm:ss formats
-        if (time.length >= 5) {
-          return time.substring(0, 5); // Extract HH:mm
-        }
-        return time;
-      });
+      // Extract watering schedule data
+      const startTime = towerData.start_time || "";
+      const endTime = towerData.end_time || "";
+      const wateringDuration = towerData.watering_duration || towerData.wateringDuration || 30;
+      const intervals = towerData.intervals || 60;
       
-      // Ensure we have the right number of watering times based on frequency
-      const frequency = towerData.frequency || 1;
-      while (wateringTimes.length < frequency) {
-        wateringTimes.push(""); // Add empty slots if needed
-      }
-      
-      console.log('Extracted watering times:', wateringTimes);
+      console.log('Extracted watering schedule:', { startTime, endTime, wateringDuration, intervals });
       
       // Prepare tower data for editing with fresh data
       // If no device is connected, force status to INACTIVE regardless of backend status
@@ -278,13 +263,13 @@ function ManageTower() {
         status: shouldBeActive, // Convert enum string to boolean for UI, but only if device is connected
         startDate: towerData.start_date || towerData.startDate,
         endDate: towerData.end_date || towerData.endDate,
-        frequency: frequency,
         waterLevel: towerData.water_level || towerData.waterLevel || 5,
-        wateringDuration: towerData.watering_duration || towerData.wateringDuration || schedules[0]?.duration || 15,
+        startTime: startTime,
+        endTime: endTime,
+        wateringDuration: wateringDuration,
+        intervals: intervals,
         user: towerData.user,
         plant: towerData.plant,
-        schedules: schedules,
-        wateringTimes: wateringTimes,
       });
       
       // If tower was supposed to be active but has no device, update backend to INACTIVE
@@ -400,17 +385,13 @@ function ManageTower() {
         user: towerData.user,
         plant: towerData.plant,
         name: towerData.name,
-        frequency: towerData.frequency,
         start_date: towerData.start_date || towerData.startDate,
         end_date: towerData.end_date || towerData.endDate,
+        start_time: towerData.start_time || towerData.startTime || "08:00",
+        end_time: towerData.end_time || towerData.endTime || "20:00",
+        watering_duration: parseInt(towerData.watering_duration || towerData.wateringDuration || 30),
+        intervals: parseInt(towerData.intervals || 60),
         status: 'INACTIVE', // Force to INACTIVE
-        water_level: towerData.water_level || towerData.waterLevel,
-        watering_duration: towerData.watering_duration || towerData.wateringDuration || 15,
-        schedules: (towerData.schedules || []).map(s => ({
-          id: s.id,
-          start_time: s.start_time || s.time,
-          duration: s.duration
-        }))
       };
       
       const response = await fetch(`/apis/updateTower/${towerId}`, {
@@ -438,42 +419,23 @@ function ManageTower() {
       return;
     }
 
-    // Only validate watering times if tower is active
+    // Validate watering schedule fields if tower is active
     if (editingTower.status) {
-      console.log('Validating watering times:', editingTower.wateringTimes);
-      console.log('Frequency:', editingTower.frequency);
-      
-      if (!editingTower.wateringTimes || editingTower.wateringTimes.length < editingTower.frequency) {
-        toast.error(`Please fill in all ${editingTower.frequency} watering times.`);
+      if (!editingTower.startTime) {
+        toast.error('Please enter start time');
         return;
       }
-      
-      const emptyTimes = editingTower.wateringTimes.slice(0, editingTower.frequency).filter(t => !t);
-      if (emptyTimes.length > 0) {
-        toast.error(`Please fill in all watering times. ${emptyTimes.length} time(s) are missing.`);
+      if (!editingTower.endTime) {
+        toast.error('Please enter end time');
         return;
       }
-
-      // Check for overlapping times
-      const times = editingTower.wateringTimes.slice(0, editingTower.frequency).filter(t => t);
-      const duration = editingTower.wateringDuration || 15;
-      
-      for (let i = 0; i < times.length; i++) {
-        for (let j = i + 1; j < times.length; j++) {
-          const time1 = times[i].split(':');
-          const time2 = times[j].split(':');
-          
-          const start1 = parseInt(time1[0]) * 60 + parseInt(time1[1]);
-          const end1 = start1 + duration;
-          const start2 = parseInt(time2[0]) * 60 + parseInt(time2[1]);
-          const end2 = start2 + duration;
-          
-          // Check if times overlap
-          if ((start1 < end2 && end1 > start2) || (start2 < end1 && end2 > start1)) {
-            toast.error(`Watering times overlap! Time ${i + 1} (${times[i]}) and Time ${j + 1} (${times[j]}) conflict with each other.`);
-            return;
-          }
-        }
+      if (!editingTower.wateringDuration || parseInt(editingTower.wateringDuration) <= 0) {
+        toast.error('Please enter a valid watering duration');
+        return;
+      }
+      if (!editingTower.intervals || parseInt(editingTower.intervals) < 6) {
+        toast.error('Please enter a valid interval (minimum 6 minutes)');
+        return;
       }
     }
 
@@ -481,44 +443,22 @@ function ManageTower() {
       setSaving(true);
       toast.loading('Updating tower...');
 
-      // Edit tower: fetch current data and update with new values
+      // Edit tower: update with new watering schedule structure
       // Status conversion: boolean (UI state) -> enum string (backend)
       // - true -> 'ACTIVE' (requires device assignment, validated by backend)
       // - false -> 'INACTIVE' (allowed immediately, skips schedule validation)
-      const isActive = editingTower.status;
-      const formatTimeWithSeconds = (time) => {
-        if (!time) return null;
-        return time.length === 5 ? `${time}:00` : time;
-      };
-      const schedulesPayload = isActive
-        ? editingTower.wateringTimes.slice(0, editingTower.frequency).map((time, index) => ({
-            id: editingTower.schedules?.[index]?.id || null,
-            start_time: `${time}:00`,
-          }))
-        : (editingTower.schedules || [])
-            .map((schedule, index) => {
-              const rawTime =
-                editingTower.wateringTimes?.[index] || schedule?.start_time || schedule?.time;
-              const formatted = formatTimeWithSeconds(rawTime);
-              if (!formatted) return null;
-              return {
-                id: schedule?.id || null,
-                start_time: formatted,
-              };
-            })
-            .filter(Boolean);
-
       const payload = {
         id: editingTower.id,
         user: editingTower.user, // Send full user object
         plant: editingTower.plant, // Send full plant object
         name: editingTower.name,
-        frequency: editingTower.frequency,
         start_date: editingTower.startDate,
         end_date: editingTower.endDate,
+        start_time: editingTower.startTime,
+        end_time: editingTower.endTime,
+        watering_duration: parseInt(editingTower.wateringDuration),
+        intervals: parseInt(editingTower.intervals),
         status: editingTower.status ? 'ACTIVE' : 'INACTIVE', // Convert boolean to enum string
-        watering_duration: editingTower.wateringDuration || 15,
-        schedules: schedulesPayload,
       };
 
       console.log('Updating tower with payload:', JSON.stringify(payload, null, 2));
@@ -1026,72 +966,116 @@ function ManageTower() {
 
                   {editingTower.status && (
                     <>
+                      {/* Watering Schedule Section Header */}
                       <div className="mb-4">
-                        <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
-                          <RefreshCw className="w-4 h-4 text-green-600" />
-                          Watering Frequency (times per day)
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={editingTower.frequency}
-                          onChange={(e) => {
-                            const freq = Number(e.target.value) || 1;
-                            handleEditChange("frequency", freq);
-                            const currentTimes = editingTower.wateringTimes || [];
-                            if (freq > currentTimes.length) {
-                              handleEditChange("wateringTimes", [...currentTimes, ...Array(freq - currentTimes.length).fill("")]);
-                            } else {
-                              handleEditChange("wateringTimes", currentTimes.slice(0, freq));
-                            }
-                          }}
-                          className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
-                        />
-                        <p className="text-sm text-gray-600 mt-2 font-medium">
-                          <span className="text-green-700">{editingTower.frequency}</span> times per day
-                        </p>
-                      </div>
-
-                      <div className="mb-4">
-                        <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
-                          <Clock className="w-4 h-4 text-green-600" />
-                          Watering Duration (minutes per session)
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="60"
-                          value={editingTower.wateringDuration}
-                          onChange={(e) => handleEditChange("wateringDuration", Number(e.target.value) || 15)}
-                          className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
-                        />
-                        <p className="text-sm text-gray-600 mt-2 font-medium">
-                          Each watering session lasts <span className="text-green-700">{editingTower.wateringDuration}</span> minutes
-                        </p>
-                      </div>
-
-                      <div className="mb-4">
-                        <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
-                          <Clock className="w-4 h-4 text-green-600" />
-                          Watering Times
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                          {Array.from({ length: editingTower.frequency }).map((_, index) => (
-                            <div key={index} className="flex flex-col">
-                              <span className="text-xs font-semibold text-gray-600 mb-2">Time {index + 1}</span>
-                              <input
-                                type="time"
-                                value={editingTower.wateringTimes?.[index] || ""}
-                                onChange={(e) => {
-                                  const updatedTimes = [...(editingTower.wateringTimes || [])];
-                                  updatedTimes[index] = e.target.value;
-                                  handleEditChange("wateringTimes", updatedTimes);
-                                }}
-                                className="px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
-                              />
-                            </div>
-                          ))}
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                            <RefreshCw className="w-4 h-4 text-white" />
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-800">Watering Schedule</h3>
                         </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4">
+                          <div className="flex items-start gap-2">
+                            <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-blue-700">
+                              Configure when and how often your tower waters plants each day
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Time Window */}
+                      <div className="mb-6">
+                        <label className="text-sm font-bold text-gray-700 mb-3 block">Daily Time Window</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Start Time */}
+                          <div>
+                            <label className="flex items-center gap-2 text-gray-600 text-sm mb-2">
+                              <Clock className="w-3.5 h-3.5 text-green-600" />
+                              Start Time
+                            </label>
+                            <input
+                              type="time"
+                              value={editingTower.startTime}
+                              onChange={(e) => handleEditChange("startTime", e.target.value)}
+                              className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                            />
+                          </div>
+
+                          {/* End Time */}
+                          <div>
+                            <label className="flex items-center gap-2 text-gray-600 text-sm mb-2">
+                              <Clock className="w-3.5 h-3.5 text-green-600" />
+                              End Time
+                            </label>
+                            <input
+                              type="time"
+                              value={editingTower.endTime}
+                              onChange={(e) => handleEditChange("endTime", e.target.value)}
+                              className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">⏰ System will only water between these times</p>
+                      </div>
+
+                      {/* Watering Settings */}
+                      <div className="mb-4">
+                        <label className="text-sm font-bold text-gray-700 mb-3 block">Watering Settings</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Watering Interval */}
+                          <div>
+                            <label className="flex items-center gap-2 text-gray-600 text-sm mb-2">
+                              <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+                              Interval (minutes)
+                            </label>
+                            <input
+                              type="number"
+                              min="6"
+                              value={editingTower.intervals}
+                              onChange={(e) => handleEditChange("intervals", e.target.value)}
+                              className={`block w-full rounded-xl border-2 px-4 py-3 focus:ring-2 transition-all font-medium ${
+                                editingTower.intervals && parseInt(editingTower.intervals) < 6
+                                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                                  : 'border-gray-200 focus:ring-green-500 focus:border-green-500'
+                              }`}
+                              placeholder="60"
+                            />
+                            {editingTower.intervals && parseInt(editingTower.intervals) < 6 ? (
+                              <p className="text-xs text-red-600 mt-2 font-medium">⚠️ Minimum 6 minutes</p>
+                            ) : (
+                              <p className="text-xs text-gray-500 mt-2">Time between sessions</p>
+                            )}
+                          </div>
+
+                          {/* Watering Duration */}
+                          <div>
+                            <label className="flex items-center gap-2 text-gray-600 text-sm mb-2">
+                              <Clock className="w-3.5 h-3.5 text-blue-600" />
+                              Duration (seconds)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="300"
+                              value={editingTower.wateringDuration}
+                              onChange={(e) => handleEditChange("wateringDuration", e.target.value)}
+                              className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                              placeholder="30"
+                            />
+                            <p className="text-xs text-gray-500 mt-2">Per session (1-300 sec)</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Example Banner */}
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4">
+                        <p className="text-xs font-semibold text-green-800 mb-1">📋 Example Schedule:</p>
+                        <p className="text-xs text-green-700">
+                          Start: <span className="font-bold">{editingTower.startTime || '08:00'}</span> → 
+                          End: <span className="font-bold">{editingTower.endTime || '20:00'}</span> | 
+                          Every <span className="font-bold">{editingTower.intervals || '60'}</span> min for <span className="font-bold">{editingTower.wateringDuration || '30'}</span> sec
+                        </p>
                       </div>
                     </>
                   )}
