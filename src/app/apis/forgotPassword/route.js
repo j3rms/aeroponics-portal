@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import {tokenUrl} from "../../_api/routes";
 
 export async function POST(request) {
   try {
@@ -11,8 +12,9 @@ export async function POST(request) {
       );
     }
 
-    // Call backend API to send OTP
-    const backendResponse = await fetch("http://localhost:8080/oauth/change-password-otp", {
+    const oauthRequest = `${tokenUrl()}/change-password-otp`;
+
+    const oauthResponse = await fetch(oauthRequest, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -20,9 +22,9 @@ export async function POST(request) {
       body: JSON.stringify({ email }),
     });
 
-    const result = await backendResponse.json();
+    const result = await oauthResponse.json();
 
-    if (backendResponse.ok) {
+    if (oauthResponse.ok) {
       return NextResponse.json({
         success: true,
         message: result.message || "OTP sent successfully to your email",
@@ -34,7 +36,7 @@ export async function POST(request) {
           success: false, 
           message: result.message || "Failed to send OTP. Please check your email and try again." 
         },
-        { status: backendResponse.status }
+        { status: oauthResponse.status }
       );
     }
   } catch (error) {

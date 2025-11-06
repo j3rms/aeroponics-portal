@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { url } from '../../_api/routes';
 
 export async function GET() {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/api/devices/free/all`, {
+    const backendUrl = `${url()}/devices/free/all`;
+    const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

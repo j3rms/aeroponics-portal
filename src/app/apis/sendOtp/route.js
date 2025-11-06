@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { tokenUrl } from "../../_api/routes";
 
 export async function POST(request) {
   try {
@@ -27,8 +28,10 @@ export async function POST(request) {
       );
     }
 
+    const sendOtpEndpoint = `${tokenUrl()}/send-otp`;
+
     // Call backend API to send OTP
-    const backendResponse = await fetch("http://localhost:8080/oauth/send-otp", {
+    const backendResponse = await fetch(sendOtpEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { tokenUrl } from "../../_api/routes";
 
 export async function POST(request) {
   try {
@@ -37,8 +38,10 @@ export async function POST(request) {
       );
     }
 
+    const verifyChangePasswordOtpEndpoint = `${tokenUrl()}/verify-change-password-otp`;
+
     // Call backend API to verify OTP and reset password
-    const backendResponse = await fetch("http://localhost:8080/oauth/verify-change-password-otp", {
+    const backendResponse = await fetch(verifyChangePasswordOtpEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
