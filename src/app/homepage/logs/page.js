@@ -2,7 +2,7 @@
 import Footer from "@/components/footer";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { FileText, ChevronLeft, ChevronRight, Droplets, Activity, Gauge, Thermometer, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight, Droplets, Activity, Gauge, Thermometer, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
 import withAuth from "@/components/withAuth";
 
 // Data is now fetched from backend via /apis/getLogs
@@ -124,18 +124,45 @@ function Logs() {
   const [error, setError] = useState("");
   const [sortField, setSortField] = useState('timestamp'); // Default sort by timestamp
   const [sortOrder, setSortOrder] = useState('desc'); // Default descending (latest first)
+  const [selectedTowerId, setSelectedTowerId] = useState(null); // null = all towers
+  const [towers, setTowers] = useState([]);
+  const [loadingTowers, setLoadingTowers] = useState(true);
   const itemsPerPage = 12;
 
+  // Fetch towers on mount
+  useEffect(() => {
+    const fetchTowers = async () => {
+      try {
+        setLoadingTowers(true);
+        const res = await fetch('/apis/getAllUserTowers', { cache: 'no-store' });
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.data?.data)) {
+          setTowers(data.data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch towers:', err);
+      } finally {
+        setLoadingTowers(false);
+      }
+    };
+    fetchTowers();
+  }, []);
+
+  // Fetch logs when tower filter changes
   useEffect(() => {
     const fetchLogs = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/apis/getLogs?limit=200`, { cache: 'no-store' });
+        const url = selectedTowerId 
+          ? `/apis/getLogs?limit=200&towerId=${selectedTowerId}`
+          : `/apis/getLogs?limit=200`;
+        const res = await fetch(url, { cache: 'no-store' });
         const data = await res.json();
         if (!res.ok || !data.success) {
           throw new Error(data.message || `Failed to fetch logs (${res.status})`);
         }
         setLogs(Array.isArray(data.data) ? data.data : []);
+        setCurrentPage(1); // Reset to first page when filter changes
       } catch (err) {
         console.error('Logs fetch error:', err);
         setError(err.message || 'Failed to load logs');
@@ -144,7 +171,7 @@ function Logs() {
       }
     };
     fetchLogs();
-  }, []);
+  }, [selectedTowerId]);
 
   // Handle sorting
   const handleSort = (field) => {
@@ -222,17 +249,40 @@ function Logs() {
             <div className="absolute top-10 -left-20 w-72 h-72 bg-green-200/30 rounded-full blur-3xl -z-10"></div>
             <div className="absolute -bottom-4 -right-4 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10"></div>
             
-            <div className="flex flex-col items-center text-center md:flex-row md:items-center md:justify-start md:text-left gap-4 relative z-10">
-              <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <FileText className="w-6 h-6 md:w-8 md:h-8 text-white" />
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative z-10">
+              <div className="flex flex-col items-center text-center md:items-start md:text-left gap-4">
+                <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <FileText className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
+                    Tower Data Logs
+                  </h1>
+                  <p className="text-gray-600 text-sm md:text-lg mt-1">
+                    View historical sensor data from your towers
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-green-700 to-emerald-600 bg-clip-text text-transparent pb-1 leading-tight">
-                  Tower Data Logs
-                </h1>
-                <p className="text-gray-600 text-sm md:text-lg mt-1">
-                  View historical sensor data from your towers
-                </p>
+              
+              {/* Tower Filter */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Filter className="w-5 h-5" />
+                  <span className="font-semibold text-sm md:text-base">Filter:</span>
+                </div>
+                <select
+                  value={selectedTowerId || ''}
+                  onChange={(e) => setSelectedTowerId(e.target.value ? parseInt(e.target.value) : null)}
+                  disabled={loadingTowers}
+                  className="px-4 py-2.5 bg-white border-2 border-green-200 rounded-xl text-sm md:text-base font-semibold text-gray-700 hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                >
+                  <option value="">All Towers</option>
+                  {towers.map((tower) => (
+                    <option key={tower.id} value={tower.id}>
+                      {tower.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </motion.div>

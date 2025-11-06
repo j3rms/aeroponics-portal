@@ -678,7 +678,7 @@ const CreateTower = () => {
                   type="text"
                   value={towerName}
                   onChange={(e) => setTowerName(e.target.value)}
-                  placeholder="e.g., Hydroponic Tower 1, Lettuce Farm A"
+                  placeholder="e.g., Aeroponics Tower 1, Lettuce Farm A"
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                   required
                 />
