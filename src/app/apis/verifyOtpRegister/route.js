@@ -40,8 +40,10 @@ export async function POST(request) {
       );
     }
 
+    const verifyOtpRegisterEndpoint = `${tokenUrl()}/verify-otp-register`;
+
     // Call backend API to verify OTP and register user
-    const backendResponse = await fetch("http://localhost:8080/oauth/verify-otp-register", {
+    const backendResponse = await fetch(verifyOtpRegisterEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

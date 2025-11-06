@@ -24,7 +24,9 @@ export async function POST(request) {
       );
     }
 
-    const response = await fetch(`${url()}/tower/${towerId}/assign-device/${deviceId}`, {
+    const assignDeviceEndpoint = `${url()}/tower/${towerId}/assign-device/${deviceId}`;
+
+    const response = await fetch(assignDeviceEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
