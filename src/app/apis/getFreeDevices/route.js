@@ -1,13 +1,24 @@
 import { NextResponse } from 'next/server';
+import { getToken } from '../../_api/auth_lib/session';
 import { url } from '../../_api/routes';
 
 export async function GET() {
   try {
+    const token = await getToken();
+    
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: 'User not authenticated' },
+        { status: 401 }
+      );
+    }
+
     const backendUrl = `${url()}/devices/free/all`;
     const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
     });
 
