@@ -40,6 +40,7 @@ function ManageTower() {
   // Device assignment states
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [deviceAssignTower, setDeviceAssignTower] = useState(null);
+  const [isDeviceModalFromEdit, setIsDeviceModalFromEdit] = useState(false);
   
   // Device connectivity tracking - maps tower ID to boolean
   const [towerDeviceStatus, setTowerDeviceStatus] = useState({});
@@ -245,9 +246,10 @@ function ManageTower() {
       const hasDevice = await checkTowerHasDevice(tower.id);
       console.log('Tower has device:', hasDevice);
       
-      // Extract watering schedule data
-      const startTime = towerData.start_time || "";
-      const endTime = towerData.end_time || "";
+      // Extract watering schedule data - ensure we always have valid values
+      // Backend requires these fields even for inactive towers
+      const startTime = towerData.start_time || towerData.startTime || "08:00";
+      const endTime = towerData.end_time || towerData.endTime || "20:00";
       const wateringDuration = towerData.watering_duration || towerData.wateringDuration || 30;
       const intervals = towerData.intervals || 60;
       
@@ -293,43 +295,104 @@ function ManageTower() {
 
   const handleConnectDevice = (tower) => {
     setDeviceAssignTower(tower);
+    setIsDeviceModalFromEdit(false); // Not from edit modal, assign immediately
     setShowDeviceModal(true);
   };
 
-  const handleDeviceModalClose = async (assigned) => {
+  const handleDeviceModalClose = async (result) => {
     setShowDeviceModal(false);
     const towerId = deviceAssignTower?.id;
+    const fromEdit = isDeviceModalFromEdit;
     setDeviceAssignTower(null);
+    setIsDeviceModalFromEdit(false);
     
-    if (assigned) {
-      // Device was assigned successfully
-      setEditingTower((prev) => (prev ? { ...prev, status: true } : prev));
+    // Handle different result types: { assigned: boolean, deviceId?: number } or boolean (legacy)
+    if (typeof result === 'object' && result !== null) {
+      // New format: { assigned: boolean, deviceId?: number, closed?: boolean }
+      if (result.closed) {
+        // User closed modal without selecting
+        if (fromEdit && editingTower) {
+          // Revert status to inactive if from edit modal
+          setEditingTower((prev) => (prev ? { ...prev, status: false, pendingDeviceId: null } : null));
+        }
+        return;
+      }
       
-      // Update device status for this tower
-      setTowerDeviceStatus(prev => ({ ...prev, [towerId]: true }));
-      
-      fetchTowers();
-      toast.success('Device assigned. Tower is now ready to be activated.');
+      if (result.assigned && result.deviceId) {
+        if (fromEdit && editingTower) {
+          // Device was selected from edit modal (deferred assignment), store device ID
+          setEditingTower((prev) => (prev ? { ...prev, pendingDeviceId: result.deviceId } : null));
+          toast.success('Device selected. Click "Save Changes" to assign and activate the tower.');
+        } else {
+          // Device was selected from connect device flow, assign immediately (shouldn't happen with deferAssign)
+          // This is a fallback
+          try {
+            const assignResponse = await fetch(`/apis/assignDeviceToTower`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                towerId: towerId,
+                deviceId: result.deviceId,
+              }),
+            });
+
+            const assignResult = await assignResponse.json();
+            if (assignResponse.ok && assignResult.success) {
+              setTowerDeviceStatus(prev => ({ ...prev, [towerId]: true }));
+              fetchTowers();
+              toast.success('Device assigned successfully!');
+            } else {
+              toast.error(assignResult.message || 'Failed to assign device');
+            }
+          } catch (error) {
+            console.error('Error assigning device:', error);
+            toast.error('Failed to assign device');
+          }
+        }
+      } else {
+        // No device selected
+        if (fromEdit && editingTower) {
+          // Revert status to inactive if from edit modal
+          setEditingTower((prev) => (prev ? { ...prev, status: false, pendingDeviceId: null } : null));
+        }
+      }
     } else {
-      // Device was not assigned or was disconnected
-      // Check if tower still has any devices
-      if (towerId) {
-        const hasDevice = await checkTowerHasDevice(towerId);
+      // Legacy boolean format (for backward compatibility)
+      const assigned = result === true;
+      if (assigned) {
+        // Device was assigned immediately (legacy flow - shouldn't happen with deferAssign)
+        if (editingTower) {
+          setEditingTower((prev) => (prev ? { ...prev, status: true } : null));
+        }
         
         // Update device status for this tower
-        setTowerDeviceStatus(prev => ({ ...prev, [towerId]: hasDevice }));
+        setTowerDeviceStatus(prev => ({ ...prev, [towerId]: true }));
         
-        if (!hasDevice) {
-          // No devices connected, force status to inactive
-          setEditingTower((prev) => (prev ? { ...prev, status: false } : prev));
+        fetchTowers();
+        toast.success('Device assigned. Tower is now ready to be activated.');
+      } else {
+        // Device was not assigned or was disconnected
+        // Check if tower still has any devices
+        if (towerId) {
+          const hasDevice = await checkTowerHasDevice(towerId);
           
-          // Update backend to set status to INACTIVE
-          if (editingTower) {
-            await updateTowerStatusToInactive(towerId, editingTower);
+          // Update device status for this tower
+          setTowerDeviceStatus(prev => ({ ...prev, [towerId]: hasDevice }));
+          
+          if (!hasDevice && editingTower) {
+            // No devices connected, force status to inactive
+            setEditingTower((prev) => (prev ? { ...prev, status: false } : null));
+            
+            // Update backend to set status to INACTIVE
+            if (editingTower) {
+              await updateTowerStatusToInactive(towerId, editingTower);
+            }
+            
+            toast('Tower status set to inactive - disconnected');
+            fetchTowers();
           }
-          
-          toast('Tower status set to inactive - disconnected');
-          fetchTowers();
         }
       }
     }
@@ -360,13 +423,15 @@ function ManageTower() {
       if (hasDevice) {
         setEditingTower((prev) => ({ ...prev, status: true }));
       } else {
+        // Set both states together to open device modal
         setDeviceAssignTower({ id: editingTower.id, name: editingTower.name });
+        setIsDeviceModalFromEdit(true); // From edit modal, defer assignment
         setShowDeviceModal(true);
         toast('Assign a device to activate this tower.');
       }
     } else {
-      // Deactivating is allowed directly
-      setEditingTower((prev) => ({ ...prev, status: false }));
+      // Deactivating is allowed directly - clear any pending device assignment
+      setEditingTower((prev) => ({ ...prev, status: false, pendingDeviceId: null }));
     }
   };
 
@@ -419,6 +484,12 @@ function ManageTower() {
       return;
     }
 
+    // Validate that start date is not today if start time has passed (only for active towers)
+    if (editingTower.status && isStartDateInvalidForToday()) {
+      toast.error("Cannot start today - the start time has already passed. Please select a future date or change the start time.");
+      return;
+    }
+
     // Validate watering schedule fields if tower is active
     if (editingTower.status) {
       if (!editingTower.startTime) {
@@ -427,6 +498,10 @@ function ManageTower() {
       }
       if (!editingTower.endTime) {
         toast.error('Please enter end time');
+        return;
+      }
+      if (isEndTimeInvalid()) {
+        toast.error("End time must be later than the start time.");
         return;
       }
       if (!editingTower.wateringDuration || parseInt(editingTower.wateringDuration) <= 0) {
@@ -447,6 +522,21 @@ function ManageTower() {
       // Status conversion: boolean (UI state) -> enum string (backend)
       // - true -> 'ACTIVE' (requires device assignment, validated by backend)
       // - false -> 'INACTIVE' (allowed immediately, skips schedule validation)
+      // Ensure all required fields have valid values (backend requires them even for inactive towers)
+      // Handle empty strings and null/undefined values
+      const startTimeValue = (editingTower.startTime && typeof editingTower.startTime === 'string' && editingTower.startTime.trim() !== "") 
+        ? editingTower.startTime 
+        : "08:00";
+      const endTimeValue = (editingTower.endTime && typeof editingTower.endTime === 'string' && editingTower.endTime.trim() !== "") 
+        ? editingTower.endTime 
+        : "20:00";
+      const wateringDurationValue = editingTower.wateringDuration 
+        ? parseInt(editingTower.wateringDuration) 
+        : 30;
+      const intervalsValue = editingTower.intervals 
+        ? parseInt(editingTower.intervals) 
+        : 60;
+
       const payload = {
         id: editingTower.id,
         user: editingTower.user, // Send full user object
@@ -454,14 +544,46 @@ function ManageTower() {
         name: editingTower.name,
         start_date: editingTower.startDate,
         end_date: editingTower.endDate,
-        start_time: editingTower.startTime,
-        end_time: editingTower.endTime,
-        watering_duration: parseInt(editingTower.wateringDuration),
-        intervals: parseInt(editingTower.intervals),
+        start_time: startTimeValue,
+        end_time: endTimeValue,
+        watering_duration: wateringDurationValue,
+        intervals: intervalsValue,
         status: editingTower.status ? 'ACTIVE' : 'INACTIVE', // Convert boolean to enum string
       };
 
       console.log('Updating tower with payload:', JSON.stringify(payload, null, 2));
+
+      // If activating tower and there's a pending device assignment, assign device FIRST
+      // Backend requires device to be assigned before setting status to ACTIVE
+      if (editingTower.status && editingTower.pendingDeviceId) {
+        try {
+          toast.loading('Assigning device...');
+          const assignResponse = await fetch(`/apis/assignDeviceToTower`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              towerId: editingTower.id,
+              deviceId: editingTower.pendingDeviceId,
+            }),
+          });
+
+          const assignResult = await assignResponse.json();
+
+          if (!assignResponse.ok || !assignResult.success) {
+            toast.dismiss();
+            throw new Error(assignResult.message || 'Failed to assign device. Tower cannot be activated without a device.');
+          }
+
+          toast.dismiss();
+          toast.loading('Updating tower...');
+        } catch (assignError) {
+          console.error('Error assigning device:', assignError);
+          toast.dismiss();
+          throw new Error(assignError.message || 'Failed to assign device. Tower cannot be activated without a device.');
+        }
+      }
 
       const response = await fetch(`/apis/updateTower/${editingTower.id}`, {
         method: "PUT",
@@ -481,7 +603,12 @@ function ManageTower() {
       console.log('Tower updated successfully:', result);
 
       toast.dismiss();
-      toast.success("Tower updated successfully!");
+      if (editingTower.status && editingTower.pendingDeviceId) {
+        toast.success('Device assigned and tower activated successfully!');
+      } else {
+        toast.success("Tower updated successfully!");
+      }
+
       setEditingTower(null);
       fetchTowers(); // Refresh the list
     } catch (error) {
@@ -502,8 +629,39 @@ function ManageTower() {
   };
 
   const isEndDateInvalid = () => {
-    if (!editingTower) return false;
-    return new Date(editingTower.endDate) <= new Date(editingTower.startDate);
+    if (!editingTower || !editingTower.startDate || !editingTower.endDate) return false;
+    const startDate = new Date(editingTower.startDate);
+    const endDate = new Date(editingTower.endDate);
+    // Set time to midnight for date-only comparison
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    // End date must be later than start date (not same day)
+    return endDate <= startDate;
+  };
+
+  const isEndTimeInvalid = () => {
+    if (!editingTower || !editingTower.startTime || !editingTower.endTime) return false;
+    // End time must be later than start time (not the same or earlier)
+    return editingTower.endTime <= editingTower.startTime;
+  };
+
+  const isStartDateInvalidForToday = () => {
+    if (!editingTower || !editingTower.startDate || !editingTower.startTime) return false;
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startDate = new Date(editingTower.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    
+    // Check if start date is today
+    if (startDate.getTime() !== todayStart.getTime()) return false;
+    
+    // If it's today, check if start time has already passed
+    const now = new Date();
+    const [hours, minutes] = editingTower.startTime.split(':').map(Number);
+    const startTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+    
+    // If start time is earlier than current time, it's invalid
+    return startTimeToday < now;
   };
 
   // Helper to derive number of times
@@ -893,6 +1051,12 @@ function ManageTower() {
                         {editingTower.status ? "Active" : "Inactive"}
                       </span>
                     </div>
+                    {editingTower.status && editingTower.pendingDeviceId && (
+                      <div className="mt-3 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-800 flex gap-2 items-start">
+                        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>Device selected. Click "Save Changes" to assign the device and activate the tower.</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Water Level */}
@@ -907,7 +1071,7 @@ function ManageTower() {
                       onChange={(e) => handleEditChange("waterLevel", parseInt(e.target.value))}
                       min="1"
                       max="10"
-                      disabled={!editingTower.status}
+                      disabled={true}
                       className={`block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium ${!editingTower.status ? "bg-gray-100 cursor-not-allowed text-gray-500 focus:ring-0 focus:border-gray-200" : ""}`}
                       placeholder="5"
                     />
@@ -928,8 +1092,17 @@ function ManageTower() {
                         type="date"
                         value={editingTower.startDate}
                         readOnly
-                        className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 bg-gray-100 cursor-not-allowed font-medium text-gray-600"
+                        className={`block w-full rounded-xl border-2 px-4 py-3 bg-gray-100 cursor-not-allowed font-medium text-gray-600 ${
+                          editingTower.status && isStartDateInvalidForToday()
+                            ? 'border-red-500'
+                            : 'border-gray-200'
+                        }`}
                       />
+                      {editingTower.status && isStartDateInvalidForToday() && (
+                        <p className="text-red-600 text-sm mt-2 font-medium">
+                          Start time has already passed today. Change the start time or contact support to update the start date.
+                        </p>
+                      )}
                     </div>
 
                     {/* End Date */}
@@ -951,7 +1124,7 @@ function ManageTower() {
                       />
                       {isEndDateInvalid() && (
                         <p className="text-red-600 text-sm mt-2 font-medium">
-                          End date must be later than start date
+                          End date must be later than start date (not the same day)
                         </p>
                       )}
                     </div>
@@ -1012,8 +1185,17 @@ function ManageTower() {
                               type="time"
                               value={editingTower.endTime}
                               onChange={(e) => handleEditChange("endTime", e.target.value)}
-                              className="block w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all font-medium"
+                              className={`block w-full rounded-xl border-2 px-4 py-3 focus:ring-2 transition-all font-medium ${
+                                isEndTimeInvalid()
+                                  ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                  : "border-gray-200 focus:ring-green-500 focus:border-green-500"
+                              }`}
                             />
+                            {isEndTimeInvalid() && (
+                              <p className="text-red-600 text-sm mt-2 font-medium">
+                                End time must be later than start time
+                              </p>
+                            )}
                           </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">⏰ System will only water between these times</p>
@@ -1094,11 +1276,11 @@ function ManageTower() {
                   </motion.button>
                   <motion.button
                     onClick={handleSaveEdit}
-                    disabled={isEndDateInvalid() || saving}
-                    whileHover={{ scale: isEndDateInvalid() || saving ? 1 : 1.02 }}
-                    whileTap={{ scale: isEndDateInvalid() || saving ? 1 : 0.98 }}
+                    disabled={isEndDateInvalid() || (editingTower.status && isEndTimeInvalid()) || (editingTower.status && isStartDateInvalidForToday()) || saving}
+                    whileHover={{ scale: isEndDateInvalid() || (editingTower.status && isEndTimeInvalid()) || (editingTower.status && isStartDateInvalidForToday()) || saving ? 1 : 1.02 }}
+                    whileTap={{ scale: isEndDateInvalid() || (editingTower.status && isEndTimeInvalid()) || (editingTower.status && isStartDateInvalidForToday()) || saving ? 1 : 0.98 }}
                     className={`px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${
-                      isEndDateInvalid() || saving
+                      isEndDateInvalid() || (editingTower.status && isEndTimeInvalid()) || (editingTower.status && isStartDateInvalidForToday()) || saving
                         ? "bg-gray-300 cursor-not-allowed text-gray-500"
                         : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl"
                     }`}
@@ -1115,14 +1297,13 @@ function ManageTower() {
       )}
 
       {/* Device Assignment Modal */}
-      {deviceAssignTower && (
-        <DeviceAssignmentModal
-          isOpen={showDeviceModal}
-          onClose={handleDeviceModalClose}
-          towerId={deviceAssignTower.id}
-          towerName={deviceAssignTower.name}
-        />
-      )}
+      <DeviceAssignmentModal
+        isOpen={showDeviceModal && !!deviceAssignTower}
+        onClose={handleDeviceModalClose}
+        towerId={deviceAssignTower?.id}
+        towerName={deviceAssignTower?.name || ''}
+        deferAssign={isDeviceModalFromEdit}
+      />
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && towerToDelete && (

@@ -93,7 +93,7 @@ export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerN
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -181,9 +181,8 @@ export default function DeviceAssignmentModal({ isOpen, onClose, towerId, towerN
                             <h3 className="font-semibold text-gray-800">Device {device.id}</h3>
                             <div className="flex items-center gap-2 mt-1">
                               <Wifi className="w-4 h-4 text-gray-400" />
-                              <p className="text-sm text-gray-600">{device.macAddress}</p>
+                            
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">IP: {device.ipAddress}</p>
                           </div>
                         </div>
                         {selectedDeviceId === device.id && assigning && (

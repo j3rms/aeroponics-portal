@@ -17,6 +17,7 @@ export default function Signup() {
     password: "",
     confirmPassword: "",
   });
+  
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -48,14 +49,23 @@ export default function Signup() {
     formData.confirmPassword.length > 0 &&
     formData.confirmPassword === formData.password;
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    // Clear field-specific error when user starts typing
-    if (fieldErrors[e.target.name]) {
-      setFieldErrors({ ...fieldErrors, [e.target.name]: "" });
-    }
-  };
+    const handleChange = (e) => {
+      const { name, value } = e.target;
+    
+      // Block non-letter characters for first and last name
+      if ((name === "first_name" || name === "last_name") && !/^[A-Za-z\s]*$/.test(value)) {
+        return; // Prevent updating the field if invalid character is typed
+      }
+    
+      setFormData({ ...formData, [name]: value });
+    
+      if (fieldErrors[name]) {
+        setFieldErrors({ ...fieldErrors, [name]: "" });
+      }
+    };
+    
 
+  const nameRegex = /^[A-Za-z\s]+$/;
   // Handle OTP input change
   const handleOtpChange = (index, value) => {
     if (value.length > 1) return; // Only allow single digit
@@ -114,9 +124,14 @@ export default function Signup() {
     const errors = {};
     if (!formData.first_name.trim()) {
       errors.first_name = "First name is required";
+    } else if (!nameRegex.test(formData.first_name)) {
+      errors.first_name = "First name can only contain letters";
     }
+
     if (!formData.last_name.trim()) {
       errors.last_name = "Last name is required";
+    } else if (!nameRegex.test(formData.last_name)) {
+      errors.last_name = "Last name can only contain letters";
     }
     if (!formData.email.trim()) {
       errors.email = "Email is required";
@@ -154,7 +169,15 @@ export default function Signup() {
       toast.dismiss();
 
       if (!response.ok) {
-        const errorMsg = data.message || "Failed to send OTP. Please try again.";
+        let errorMsg;
+      
+        // If the backend returned a JDBC / connection failure
+        if (data?.message && data.message.toLowerCase().includes("jdbc")) {
+          errorMsg = "Connection Error"; // <--- your custom message
+        } else {
+          errorMsg = data?.message || "Failed to send OTP. Please try again.";
+        }
+      
         setError(errorMsg);
         toast.error(errorMsg);
         setLoading(false);

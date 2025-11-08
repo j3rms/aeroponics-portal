@@ -231,6 +231,10 @@ const CreateTower = () => {
           toast.error('Please enter end time');
           return false;
         }
+        if (endTime <= startTime) {
+          toast.error('End time must be later than start time');
+          return false;
+        }
         if (!duration || parseInt(duration) <= 0) {
           toast.error('Please enter a valid duration');
           return false;
@@ -243,6 +247,28 @@ const CreateTower = () => {
       case 5:
         if (!startDate || !endDate) {
           toast.error('Please select both start and end dates');
+          return false;
+        }
+        // Validate that start date is not today if start time has passed
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const selectedStart = new Date(startDate);
+        selectedStart.setHours(0, 0, 0, 0);
+        if (selectedStart.getTime() === todayStart.getTime() && startTime) {
+          const now = new Date();
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const startTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+          if (startTimeToday < now) {
+            toast.error('Cannot start today - the start time has already passed. Please select a future date or change the start time.');
+            return false;
+          }
+        }
+        // Validate that end date is later than start date (not same day)
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        if (end <= start) {
+          toast.error('End date must be later than start date (not the same day)');
           return false;
         }
         return true;
@@ -279,6 +305,38 @@ const CreateTower = () => {
     return date < todayStart;
   };
 
+  // Check if today's date is invalid for start date (if start time has already passed)
+  const isTodayInvalidForStartDate = (day) => {
+    if (!startTime) return false;
+    const date = makeDate(day);
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const clickedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    // Check if the clicked date is today
+    if (clickedDate.getTime() !== todayStart.getTime()) return false;
+    
+    // If it's today, check if start time has already passed
+    const now = new Date();
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+    
+    // If start time is earlier than current time, today is invalid
+    return startTimeToday < now;
+  };
+
+  // Check if a date is invalid for end date (same day as start date or earlier)
+  const isInvalidEndDate = (day) => {
+    if (!startDate) return false;
+    const date = makeDate(day);
+    const start = new Date(startDate);
+    const end = new Date(date);
+    // Set time to midnight for date-only comparison
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    // End date must be later than start date (not same day)
+    return end <= start;
+  };
+
   const handleDateClick = (day) => {
     // Prevent selecting past dates
     if (isPastDate(day)) {
@@ -288,12 +346,27 @@ const CreateTower = () => {
 
     const clickedDate = makeDate(day);
     if (!startDate || (startDate && endDate)) {
+      // When selecting start date, check if today is invalid (start time has passed)
+      if (isTodayInvalidForStartDate(day)) {
+        toast.error('Cannot select today - the start time has already passed. Please select a future date or change the start time.');
+        return;
+      }
       setStartDate(clickedDate);
       setEndDate(null);
     } else if (startDate && !endDate) {
-      if (clickedDate >= startDate) {
+      // When selecting end date, prevent selecting same day or earlier
+      if (isInvalidEndDate(day)) {
+        toast.error('End date must be later than start date (not the same day)');
+        return;
+      }
+      if (clickedDate > startDate) {
         setEndDate(clickedDate);
       } else {
+        // When changing start date, check if today is invalid
+        if (isTodayInvalidForStartDate(day)) {
+          toast.error('Cannot select today - the start time has already passed. Please select a future date or change the start time.');
+          return;
+        }
         setStartDate(clickedDate);
         setEndDate(null);
       }
@@ -412,6 +485,36 @@ const CreateTower = () => {
 
     if (!towerName || !plant || !startTime || !endTime || !duration || !intervals || !startDate || !endDate) {
       toast.error('Please complete all fields');
+      return;
+    }
+
+    // Validate that start date is not today if start time has passed
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const selectedStart = new Date(startDate);
+    selectedStart.setHours(0, 0, 0, 0);
+    if (selectedStart.getTime() === todayStart.getTime()) {
+      const now = new Date();
+      const [hours, minutes] = startTime.split(':').map(Number);
+      const startTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+      if (startTimeToday < now) {
+        toast.error('Cannot start today - the start time has already passed. Please select a future date or change the start time.');
+        return;
+      }
+    }
+
+    // Validate date range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    if (end <= start) {
+      toast.error('End date must be later than start date (not the same day)');
+      return;
+    }
+
+    // Validate time range
+    if (endTime <= startTime) {
+      toast.error('End time must be later than start time');
       return;
     }
 
@@ -775,10 +878,21 @@ const CreateTower = () => {
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      className={`w-full px-4 py-3 rounded-xl border-2 bg-white shadow-sm focus:ring-2 transition-all ${
+                        endTime && startTime && endTime <= startTime
+                          ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                          : 'border-gray-200 focus:ring-green-500 focus:border-green-500'
+                      }`}
                       required
                     />
-                    <p className="text-xs text-gray-500 mt-2">When to end the watering cycle each day</p>
+                    {endTime && startTime && endTime <= startTime && (
+                      <p className="text-xs text-red-600 mt-2 font-medium">
+                        End time must be later than start time
+                      </p>
+                    )}
+                    {!(endTime && startTime && endTime <= startTime) && (
+                      <p className="text-xs text-gray-500 mt-2">When to end the watering cycle each day</p>
+                    )}
                   </div>
 
                   {/* Watering Interval */}
@@ -898,21 +1012,33 @@ const CreateTower = () => {
   {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
     const isPast = isPastDate(day);
     const selected = isSelected(day);
+    // When selecting end date, disable dates that are same as or before start date
+    const isInvalidForEndDate = startDate && !endDate && isInvalidEndDate(day);
+    // When selecting start date, disable today if start time has already passed
+    const isTodayInvalid = (!startDate || (startDate && endDate)) && isTodayInvalidForStartDate(day);
+    const isDisabled = isPast || isInvalidForEndDate || isTodayInvalid;
     
     return (
       <button
         type="button"
         key={day}
         onClick={() => handleDateClick(day)}
-        disabled={isPast}
+        disabled={isDisabled}
         className={`w-11 h-11 flex items-center justify-center rounded-xl text-sm font-medium transition mx-auto
           ${
-            isPast
+            isDisabled
               ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
               : selected
               ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold shadow-lg scale-105'
               : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-green-400 hover:bg-green-50 cursor-pointer'
           }`}
+        title={
+          isInvalidForEndDate 
+            ? 'End date must be later than start date' 
+            : isTodayInvalid 
+            ? 'Start time has already passed today. Select a future date or change the start time.'
+            : ''
+        }
       >
         {day}
       </button>
